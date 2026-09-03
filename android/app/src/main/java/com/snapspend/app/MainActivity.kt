@@ -42,10 +42,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import coil3.compose.AsyncImage
-import com.snapspend.app.data.Repository
+import com.snapspend.app.data.AppConfig
 import com.snapspend.app.data.local.AppDatabase
 import com.snapspend.app.data.remote.TokenStore
 import com.snapspend.app.data.remote.createApi
+import com.snapspend.app.data.repository.MockRepository
+import com.snapspend.app.data.repository.RealRepository
+import com.snapspend.app.data.repository.SnapSpendRepository
 import com.snapspend.app.model.categories
 import com.snapspend.app.ui.format.formatVnd
 import kotlinx.coroutines.launch
@@ -56,9 +59,14 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val tokenStore = TokenStore(applicationContext)
-        val db = AppDatabase.create(applicationContext)
-        val api = createApi(tokenStore)
-        val repo = Repository(applicationContext, db, api)
+        // Demo mặc định: MockRepository, không cần DB/API/backend. Tắt demo mới khởi tạo Real.
+        val repo: SnapSpendRepository = if (AppConfig.isDemo) {
+            MockRepository()
+        } else {
+            val db = AppDatabase.create(applicationContext)
+            val api = createApi(tokenStore)
+            RealRepository(applicationContext, db, api)
+        }
         setContent { SnapSpendApp(repo, tokenStore) }
     }
 }
@@ -66,7 +74,7 @@ class MainActivity : ComponentActivity() {
 private enum class Tab { ALBUM, CAMERA, STATS, PROFILE }
 
 @Composable
-fun SnapSpendApp(repo: Repository, tokenStore: TokenStore) {
+fun SnapSpendApp(repo: SnapSpendRepository, tokenStore: TokenStore) {
     var loggedIn by remember { mutableStateOf(tokenStore.token != null) }
     if (!loggedIn) {
         AuthScreen(repo) { tokenStore.token = it; loggedIn = true }
@@ -95,7 +103,7 @@ fun SnapSpendApp(repo: Repository, tokenStore: TokenStore) {
 }
 
 @Composable
-private fun AuthScreen(repo: Repository, onLoggedIn: (String) -> Unit) {
+private fun AuthScreen(repo: SnapSpendRepository, onLoggedIn: (String) -> Unit) {
     var register by remember { mutableStateOf(false) }
     var email by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
@@ -133,7 +141,7 @@ private fun AuthScreen(repo: Repository, onLoggedIn: (String) -> Unit) {
 }
 
 @Composable
-private fun CameraScreen(repo: Repository, onSaved: () -> Unit, modifier: Modifier = Modifier) {
+private fun CameraScreen(repo: SnapSpendRepository, onSaved: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
@@ -186,7 +194,7 @@ private fun CameraScreen(repo: Repository, onSaved: () -> Unit, modifier: Modifi
 }
 
 @Composable
-private fun ExpenseForm(repo: Repository, uri: Uri?, onDone: () -> Unit, modifier: Modifier = Modifier) {
+private fun ExpenseForm(repo: SnapSpendRepository, uri: Uri?, onDone: () -> Unit, modifier: Modifier = Modifier) {
     val scope = rememberCoroutineScope()
     var amount by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("auto") }
@@ -221,8 +229,8 @@ private fun ExpenseForm(repo: Repository, uri: Uri?, onDone: () -> Unit, modifie
 }
 
 @Composable
-private fun AlbumScreen(repo: Repository, refresh: Int, modifier: Modifier = Modifier) {
-    val expenses by repo.localExpenses.collectAsState(initial = emptyList())
+private fun AlbumScreen(repo: SnapSpendRepository, refresh: Int, modifier: Modifier = Modifier) {
+    val expenses by repo.expenses.collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
     LaunchedEffect(refresh) { runCatching { repo.refreshExpenses() } }
     Column(modifier.fillMaxSize().padding(16.dp)) {
@@ -258,7 +266,7 @@ private fun ExpenseCard(imageUrl: String?, category: String, amount: Long, date:
 }
 
 @Composable
-private fun StatsScreen(repo: Repository, modifier: Modifier = Modifier) {
+private fun StatsScreen(repo: SnapSpendRepository, modifier: Modifier = Modifier) {
     var stats by remember { mutableStateOf<com.snapspend.app.data.remote.StatsDto?>(null) }
     var analysis by remember { mutableStateOf<com.snapspend.app.data.remote.AnalysisDto?>(null) }
     val scope = rememberCoroutineScope()
@@ -304,7 +312,7 @@ private fun BarChart(data: Map<String, Long>, modifier: Modifier) {
 }
 
 @Composable
-private fun ProfileScreen(repo: Repository, tokenStore: TokenStore, onLoggedOut: () -> Unit, modifier: Modifier = Modifier) {
+private fun ProfileScreen(repo: SnapSpendRepository, tokenStore: TokenStore, onLoggedOut: () -> Unit, modifier: Modifier = Modifier) {
     var friends by remember { mutableStateOf<List<com.snapspend.app.data.remote.FriendDto>>(emptyList()) }
     var username by remember { mutableStateOf("") }
     var msg by remember { mutableStateOf<String?>(null) }

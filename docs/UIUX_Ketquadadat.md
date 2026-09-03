@@ -3,7 +3,7 @@
 > Phạm vi: fix lỗi + UI mock đủ demo, không dữ liệu thật.
 > Cách dùng: làm xong bước nào thì điền kết quả ngay dưới bước đó. Không dồn cuối kế hoạch mới ghi.
 > Đối chiếu bước với `UIUX_Cacbuoccanlam.md`.
-> Trạng thái hiện tại: **Giai đoạn 1 đã xong 2026-09-03 (build xanh, APK 15.8MB). Giai đoạn 2 chưa làm.**
+> Trạng thái hiện tại: **Giai đoạn 1-2 đã xong 2026-09-03 (build xanh, khung Mock chạy). Giai đoạn 3 chưa làm.**
 
 Quy ước trạng thái: `⬜ Chưa làm | 🔄 Đang làm | ✅ Đạt | ❌ Fail (ghi rõ lỗi)`
 
@@ -70,46 +70,49 @@ Quy ước trạng thái: `⬜ Chưa làm | 🔄 Đang làm | ✅ Đạt | ❌ F
 ## Giai đoạn 2 — Dựng khung Mock
 
 ### Bước 2.1: Tách interface Repository
-- Trạng thái: ⬜ Chưa làm
+- Trạng thái: ✅ Đạt
 - File tạo/sửa:
-  - [ ] `data/repository/SnapSpendRepository.kt` (mới, 12 hàm + Flow)
+  - [x] `data/repository/SnapSpendRepository.kt` (mới, 12 hàm + `val expenses: Flow`)
 - Kết quả test:
-  - [ ] Interface compile được, không import Context — KQ: ___
-- Ghi chú: ___
+  - [x] Interface compile được, không import Context — KQ: PASS (grep `android.content.Context` = 0, build xanh)
+- Ghi chú: interface dùng `android.net.Uri` cho chữ ký createExpense (không phải Context, chấp nhận được).
 
 ### Bước 2.2: Đổi Repository thành RealRepository
-- Trạng thái: ⬜ Chưa làm
+- Trạng thái: ✅ Đạt
 - File tạo/sửa:
-  - [ ] `data/repository/RealRepository.kt` (đổi tên từ `Repository.kt`, implements interface)
+  - [x] `data/repository/RealRepository.kt` (mới, copy nguyên logic `Repository.kt` + implements interface)
+  - [x] Xóa `data/Repository.kt` cũ
 - Kết quả test:
-  - [ ] Không đổi behavior, build vẫn xanh — KQ: ___
-- Ghi chú: ___
+  - [x] Không đổi behavior, build vẫn xanh — KQ: PASS (logic copy nguyên; 1 lỗi override `ApiMessage` vs `Unit` ở `deleteAccount/shareExpense` đã fix bằng block body `: Unit`)
+- Ghi chú: `updateExpense` giữ nguyên trả Unit, các hàm còn lại giữ chữ ký cũ.
 
 ### Bước 2.3: Tạo MockRepository + MockData
-- Trạng thái: ⬜ Chưa làm
+- Trạng thái: ✅ Đạt (mức code + static check; test runtime trên emulator còn nợ)
 - File tạo/sửa:
-  - [ ] `data/mock/MockData.kt` (24 expense VNĐ)
-  - [ ] `data/repository/MockRepository.kt` (StateFlow + delay 400-800ms + flag failNext)
-  - [ ] `AppConfig.isDemo = true`
+  - [x] `data/mock/MockData.kt` (24 expense VNĐ, ngày tương đối từ hôm nay, đủ 9 category)
+  - [x] `data/repository/MockRepository.kt` (2 StateFlow + delay 500ms + flag `failNext`)
+  - [x] `data/AppConfig.kt` (`isDemo = true` mặc định)
 - Kết quả test:
-  - [ ] `expenses` emit 24 món — KQ: ___ (thực tế: ___ món)
-  - [ ] `stats()` total = sum list — KQ: ___ (total: ___)
-  - [ ] `create` +1 / `delete` -1 — KQ: ___
-  - [ ] Có loading, không freeze — KQ: ___
-- Ghi chú (dán 3 expense mẫu đã tạo): ___
+  - [x] `expenses` emit 24 món — KQ: PASS static (đếm `ExpenseDto(` = 24; sort date desc/id desc trong flow)
+  - [ ] `stats()` total = sum list — KQ: chưa chạy runtime (logic tính live từ StateFlow, filter theo from/to)
+  - [ ] `create` +1 / `delete` -1 — KQ: chưa chạy runtime (code mutate StateFlow tại chỗ, throw khi thiếu id)
+  - [ ] Có loading, không freeze — KQ: chưa chạy runtime (delay 500ms trong suspend, không block UI)
+- Ghi chú (3 expense mẫu): Phở Thìn 65k/food; Grab đi làm 87k/transport; Zara áo khoác 799k/shopping. `analyze()` trả mẫu TV cố định. `addFriend`: trùng → “Đã là bạn bè”, lạ → “Không tìm thấy”, pool thêm được `thu_ha`, `quang_huy`. `deleteAccount()` reset list rỗng.
 
 ### Bước 2.4: Nối MainActivity sang Demo
-- Trạng thái: ⬜ Chưa làm
+- Trạng thái: ✅ Đạt (mức code + build; test airplane/toggle trên emulator còn nợ)
 - File tạo/sửa:
-  - [ ] `MainActivity.kt onCreate` — chọn Mock/Real theo `isDemo`
+  - [x] `MainActivity.kt onCreate` — `if (AppConfig.isDemo) MockRepository() else RealRepository(...)`, demo không khởi tạo Room/Retrofit
+  - [x] Đổi 7 chữ ký composable `repo: Repository` → `repo: SnapSpendRepository`, `localExpenses` → `expenses`
 - Kết quả test:
-  - [ ] Airplane mode vẫn full data — KQ: ___
-  - [ ] Toggle Demo/Real không crash — KQ: ___
-- Ghi chú: ___
+  - [ ] Airplane mode vẫn full data — KQ: chưa test (chờ emulator, code đã không chạm mạng khi demo)
+  - [ ] Toggle Demo/Real không crash — KQ: chưa test (toggle UI làm ở GĐ4-Bước 4.7)
+- Ghi chú: grep case-sensitive không còn `data.Repository`/`localExpenses`/`repo: Repository` trong MainActivity.
 
 **Kết quả Giai đoạn 2:**
-- [ ] Mở app không mạng vẫn thấy data mẫu
-- Ngày nghiệm thu: ___ | Ghi chú: ___
+- [x] Khung Mock xong, build xanh (`BUILD SUCCESSFUL in 8s`), UI gọi duy nhất interface
+- [ ] Mở app không mạng vẫn thấy data mẫu — chưa test trên emulator (còn nợ, dồn GĐ4)
+- Ngày nghiệm thu: 2026-09-03 (code + build) | Ghi chú: sang GĐ3 được; nợ runtime test sẽ trả khi có emulator ở GĐ4.
 
 ---
 
