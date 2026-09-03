@@ -1,0 +1,11 @@
+.env
+*.keystore
+*.jks
+local.properties
+.gradle/
+build/
+**/build/
+server/src/SnapSpend.Api/wwwroot/uploads/*
+!server/src/SnapSpend.Api/wwwroot/uploads/.gitkeep
+.idea/
+.DS_Store
