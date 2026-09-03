@@ -8,6 +8,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -18,6 +19,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -33,7 +36,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -44,12 +47,10 @@ import com.snapspend.app.data.local.AppDatabase
 import com.snapspend.app.data.remote.TokenStore
 import com.snapspend.app.data.remote.createApi
 import com.snapspend.app.model.categories
+import com.snapspend.app.ui.format.formatVnd
 import kotlinx.coroutines.launch
 import java.io.File
-import java.text.NumberFormat
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -168,7 +169,7 @@ private fun CameraScreen(repo: Repository, onSaved: () -> Unit, modifier: Modifi
             }
         }, modifier = Modifier.fillMaxSize())
         Row(Modifier.fillMaxWidth().align(Alignment.BottomCenter).padding(28.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = { galleryLauncher.launch(ActivityResultContracts.PickVisualMedia.ImageOnly) }) { Text("Album", color = Color.White) }
+            TextButton(onClick = { galleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) { Text("Album", color = Color.White) }
             IconButton(onClick = {
                 val output = File(context.cacheDir, "capture_${System.currentTimeMillis()}.jpg")
                 val options = ImageCapture.OutputFileOptions.Builder(output).build()
@@ -192,7 +193,7 @@ private fun ExpenseForm(repo: Repository, uri: Uri?, onDone: () -> Unit, modifie
     var note by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    Column(modifier.fillMaxSize().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(16.dp)) {
+    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         Text("Chi tiêu mới", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         if (uri != null) AsyncImage(model = uri, contentDescription = null, modifier = Modifier.fillMaxWidth().height(260.dp).clip(RoundedCornerShape(18.dp)), contentScale = ContentScale.Crop)
         Spacer(Modifier.height(16.dp))
@@ -264,7 +265,7 @@ private fun StatsScreen(repo: Repository, modifier: Modifier = Modifier) {
     val from = LocalDate.now().withDayOfMonth(1).toString()
     val to = LocalDate.now().toString()
     LaunchedEffect(Unit) { stats = runCatching { repo.stats(from, to) }.getOrNull() }
-    Column(modifier.fillMaxSize().padding(16.dp).verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+    Column(modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
         Text("Thống kê", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(12.dp))
         Text("Tháng này", color = Color.Gray)
@@ -308,7 +309,6 @@ private fun ProfileScreen(repo: Repository, tokenStore: TokenStore, onLoggedOut:
     var username by remember { mutableStateOf("") }
     var msg by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
-    var confirmDelete by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) { friends = runCatching { repo.friends() }.getOrDefault(emptyList()) }
     Column(modifier.fillMaxSize().padding(16.dp)) {
@@ -339,5 +339,3 @@ private fun ProfileScreen(repo: Repository, tokenStore: TokenStore, onLoggedOut:
         Text("Ảnh và chi tiêu được coi là riêng tư mặc định. Chỉ chia sẻ khi bạn chủ động thực hiện.", color = Color.Gray)
     }
 }
-
-private fun formatVnd(value: Long): String = NumberFormat.getNumberInstance(Locale("vi", "VN")).format(value) + " ₫"
