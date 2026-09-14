@@ -5,6 +5,9 @@ local.properties
 .gradle/
 build/
 **/build/
+**/bin/
+**/obj/
+android/gradle/gradle-daemon-jvm.properties
 server/src/SnapSpend.Api/wwwroot/uploads/*
 !server/src/SnapSpend.Api/wwwroot/uploads/.gitkeep
 .idea/
