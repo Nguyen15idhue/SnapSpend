@@ -14,3 +14,13 @@ val Error = Color(0xFFDC2626)
 val Success = Color(0xFF16A34A)
 val Warning = Color(0xFFD97706)
 val CameraScrim = Color(0xFF000000)
+
+// Bảng màu tối (dark mode).
+val DarkPrimary = Color(0xFF22C55E)
+val DarkOnPrimary = Color(0xFF052E16)
+val DarkSurface = Color(0xFF111827)
+val DarkSurfaceVariant = Color(0xFF1F2937)
+val DarkOutline = Color(0xFF374151)
+val DarkOnSurface = Color(0xFFF9FAFB)
+val DarkOnSurfaceVariant = Color(0xFF9CA3AF)
+val DarkError = Color(0xFFF87171)

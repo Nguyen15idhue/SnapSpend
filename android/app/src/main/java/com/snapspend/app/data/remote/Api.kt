@@ -30,6 +30,14 @@ data class ExpenseDto(
 )
 
 data class ExpenseUpsertDto(val amount: Long, val category: String, val note: String?, val expenseDate: String)
+data class ExpenseRestoreDto(
+    val amount: Long,
+    val category: String,
+    val note: String?,
+    val expenseDate: String,
+    val imageUrl: String?,
+    val aiConfidence: Double?
+)
 data class StatsDto(
     val total: Long,
     val averageDaily: Double,
@@ -46,13 +54,25 @@ data class AnalysisDto(
 data class FriendDto(val id: Long, val username: String, val email: String)
 data class AddFriendRequest(val username: String)
 
+data class CategoryDto(val key: String, val name: String, val emoji: String)
+data class ClassificationDto(val category: String, val confidence: Double, val candidates: List<String> = emptyList())
+data class SharedExpenseDto(
+    val id: Long,
+    val amount: Long,
+    val category: String,
+    val imageUrl: String?,
+    val note: String?,
+    val expenseDate: String,
+    val aiConfidence: Double?,
+    val ownerUsername: String
+)
+
 data class ApiMessage(val message: String)
 
 interface SnapSpendApi {
     @POST("auth/register") suspend fun register(@Body body: RegisterRequest): AuthResponse
     @POST("auth/login") suspend fun login(@Body body: AuthRequest): AuthResponse
     @GET("expenses") suspend fun expenses(): List<ExpenseDto>
-
     @Multipart
     @POST("expenses")
     suspend fun createExpense(
@@ -65,6 +85,7 @@ interface SnapSpendApi {
 
     @PUT("expenses/{id}") suspend fun updateExpense(@Path("id") id: Long, @Body body: ExpenseUpsertDto): ExpenseDto
     @DELETE("expenses/{id}") suspend fun deleteExpense(@Path("id") id: Long): ApiMessage
+    @POST("expenses/restore") suspend fun restoreExpense(@Body body: ExpenseRestoreDto): ExpenseDto
 
     @GET("stats") suspend fun stats(@Query("from") from: String, @Query("to") to: String): StatsDto
     @POST("ai/analyze") suspend fun analyze(@Query("from") from: String, @Query("to") to: String): AnalysisDto
@@ -74,4 +95,11 @@ interface SnapSpendApi {
     @GET("friends") suspend fun friends(): List<FriendDto>
     @POST("friends") suspend fun addFriend(@Body body: AddFriendRequest): FriendDto
     @POST("expenses/{id}/share/{friendId}") suspend fun shareExpense(@Path("id") id: Long, @Path("friendId") friendId: Long): ApiMessage
+
+    @GET("categories") suspend fun categories(): List<CategoryDto>
+    @GET("shared-with-me") suspend fun sharedWithMe(): List<SharedExpenseDto>
+
+    @Multipart
+    @POST("ai/classify")
+    suspend fun classify(@Part("note") note: RequestBody?, @Part image: MultipartBody.Part?): ClassificationDto
 }

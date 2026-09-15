@@ -66,7 +66,11 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:1.2.0")
     implementation("io.coil-kt.coil3:coil-compose:3.3.0")
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.3.0")
+    // OCR hóa đơn chạy offline trên máy (không quota).
+    implementation("com.google.mlkit:text-recognition:16.0.1")
     implementation("com.squareup.retrofit2:retrofit:3.0.0")
     implementation("com.squareup.retrofit2:converter-gson:3.0.0")
     implementation("com.squareup.okhttp3:logging-interceptor:5.1.0")
+
+    testImplementation("junit:junit:4.13.2")
 }

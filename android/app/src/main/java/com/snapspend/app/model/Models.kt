@@ -31,12 +31,12 @@ data class BehaviorAnalysis(
 
 val categories = listOf(
     Category("food", "Ăn uống", "🍜"),
-    Category("shopping", "Shopping", "🛍️"),
+    Category("shopping", "Mua sắm", "🛍️"),
     Category("transport", "Đi lại", "🛵"),
     Category("entertainment", "Giải trí", "🎬"),
     Category("housing", "Nhà ở", "🏠"),
     Category("health", "Sức khỏe", "💊"),
-    Category("education", "Học tập", "📚"),
+    Category("education", "Giáo dục", "📚"),
     Category("bills", "Hóa đơn", "🧾"),
     Category("other", "Khác", "•")
 )
