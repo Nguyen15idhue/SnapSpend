@@ -12,10 +12,13 @@ builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connect
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<StorageService>();
 builder.Services.AddScoped<AiService>();
-builder.Services.AddHttpClient("openai", client => client.Timeout = TimeSpan.FromSeconds(45));
+builder.Services.AddHttpClient("ai", client => client.Timeout = TimeSpan.FromSeconds(8));
 var jwt = builder.Configuration.GetSection("Jwt");
+var jwtKey = jwt["Key"];
+if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey.Length < 32 || jwtKey.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase))
+    throw new InvalidOperationException("Cấu hình Jwt:Key thiếu, ngắn hơn 32 ký tự hoặc vẫn là placeholder. Hãy đặt secret mạnh qua biến môi trường Jwt__Key.");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options => {
-    options.TokenValidationParameters = new TokenValidationParameters { ValidateIssuer = true, ValidateAudience = true, ValidateLifetime = true, ValidateIssuerSigningKey = true, ValidIssuer = jwt["Issuer"], ValidAudience = jwt["Audience"], IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt["Key"]!)) };
+    options.TokenValidationParameters = new TokenValidationParameters { ValidateIssuer = true, ValidateAudience = true, ValidateLifetime = true, ValidateIssuerSigningKey = true, ValidIssuer = jwt["Issuer"], ValidAudience = jwt["Audience"], IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)) };
 });
 builder.Services.AddAuthorization();
 
@@ -24,28 +27,30 @@ app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapGet("/", () => Results.Ok(new { app = "SnapSpend API", status = "ok" }));
+app.MapGet("/health", async (AppDbContext db) => {
+    try {
+        return await db.Database.CanConnectAsync()
+            ? Results.Ok(new { status = "healthy" })
+            : Results.Json(new { status = "unhealthy" }, statusCode: StatusCodes.Status503ServiceUnavailable);
+    } catch {
+        return Results.Json(new { status = "unhealthy" }, statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+});
 app.MapAuth();
 app.MapExpenses();
 app.MapStats();
 app.MapFriends();
 app.MapAccount();
+app.MapCategories();
 
 using (var scope = app.Services.CreateScope()) {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await db.Database.MigrateAsync();
-    if (!await db.Categories.AnyAsync()) {
-        db.Categories.AddRange(
-            new SnapSpend.Api.Models.Category { Key = "food", Name = "Ăn uống", Emoji = "🍜" },
-            new SnapSpend.Api.Models.Category { Key = "shopping", Name = "Shopping", Emoji = "🛍️" },
-            new SnapSpend.Api.Models.Category { Key = "transport", Name = "Đi lại", Emoji = "🛵" },
-            new SnapSpend.Api.Models.Category { Key = "entertainment", Name = "Giải trí", Emoji = "🎬" },
-            new SnapSpend.Api.Models.Category { Key = "housing", Name = "Nhà ở", Emoji = "🏠" },
-            new SnapSpend.Api.Models.Category { Key = "health", Name = "Sức khỏe", Emoji = "💊" },
-            new SnapSpend.Api.Models.Category { Key = "education", Name = "Học tập", Emoji = "📚" },
-            new SnapSpend.Api.Models.Category { Key = "bills", Name = "Hóa đơn", Emoji = "🧾" },
-            new SnapSpend.Api.Models.Category { Key = "other", Name = "Khác", Emoji = "•" });
-        await db.SaveChangesAsync();
-    }
+    // Khi test: dùng DB in-memory (EnsureCreated); bình thường: apply migration.
+    if (app.Environment.IsEnvironment("Testing")) await db.Database.EnsureCreatedAsync();
+    else await db.Database.MigrateAsync();
 }
 
 app.Run();
+
+// Cho phép WebApplicationFactory<Program> trong project test truy cập.
+public partial class Program { }

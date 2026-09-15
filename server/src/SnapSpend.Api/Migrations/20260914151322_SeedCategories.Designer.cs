@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SnapSpend.Api.Data;
@@ -11,9 +12,11 @@ using SnapSpend.Api.Data;
 namespace SnapSpend.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260914151322_SeedCategories")]
+    partial class SeedCategories
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -54,7 +57,7 @@ namespace SnapSpend.Api.Migrations
                         {
                             Key = "shopping",
                             Emoji = "🛍️",
-                            Name = "Mua sắm"
+                            Name = "Shopping"
                         },
                         new
                         {
@@ -84,7 +87,7 @@ namespace SnapSpend.Api.Migrations
                         {
                             Key = "education",
                             Emoji = "📚",
-                            Name = "Giáo dục"
+                            Name = "Học tập"
                         },
                         new
                         {

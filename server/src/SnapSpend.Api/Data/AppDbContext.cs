@@ -19,11 +19,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         b.Entity<Friendship>().ToTable("friendships");
         b.Entity<ExpenseShare>().ToTable("expense_shares");
         b.Entity<User>().HasIndex(x => x.Email).IsUnique();
-        b.Entity<User>().ToTable("users");
-        b.Entity<Expense>().ToTable("expenses");
-        b.Entity<Category>().ToTable("categories");
-        b.Entity<Friendship>().ToTable("friendships");
-        b.Entity<ExpenseShare>().ToTable("expense_shares");
         b.Entity<User>().HasIndex(x => x.Username).IsUnique();
         b.Entity<Category>().HasKey(x => x.Key);
         b.Entity<Expense>().HasIndex(x => new { x.UserId, x.ExpenseDate });
@@ -31,5 +26,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         b.Entity<ExpenseShare>().HasIndex(x => new { x.ExpenseId, x.ReceiverId }).IsUnique();
         b.Entity<Expense>().Property(x => x.ExpenseDate).HasColumnType("date");
         b.Entity<Expense>().Property(x => x.Amount).HasColumnType("bigint");
+
+        // Seed 9 category vào migration: nguồn schema duy nhất, idempotent.
+        b.Entity<Category>().HasData(CategoryCatalog.AsEntities());
     }
 }
