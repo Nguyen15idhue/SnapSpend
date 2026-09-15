@@ -14,7 +14,7 @@
 │  android/       │  ───────────────────────▶│  server/         │───────▶│ PostgreSQL │
 │  Kotlin +       │   JWT + multipart ảnh    │  ASP.NET Core 10 │        │ local      │
 │  Jetpack Compose│◀─────────────────────── │  EF Core 10      │        └────────────┘
-└─────────────────┘                          │  + OpenAI        │
+└─────────────────┘                          │  + Gemini        │
                                               └──────────────────┘
 ```
 
@@ -22,7 +22,7 @@
   - `MockRepository` — data giả trong bộ nhớ, **không cần server/mạng** (Demo mode).
   - `RealRepository` — Retrofit + Room + backend thật (Real mode).
 - Công tắc `AppConfig.isDemo` (`data/AppConfig.kt`) chọn impl. Mặc định `true` (Demo).
-- `server/`: REST API + EF Core + PostgreSQL + JWT + lưu ảnh local + OpenAI Responses API.
+- `server/`: REST API + EF Core + PostgreSQL + JWT + lưu ảnh local + Google Gemini API.
 - `docs/`: tài liệu.
 
 **Đây là hướng đi hợp lý và đã được hiện thực nhất quán**: tách UI khỏi nguồn dữ liệu, demo offline được, nối backend không phải sửa UI.
@@ -54,7 +54,7 @@
 
 ### Server
 - Auth JWT (PBKDF2 SHA256 120k vòng), expenses CRUD + multipart upload, stats, ai/analyze, friends, account delete.
-- `StorageService` validate dung lượng/định dạng ảnh; `AiService` gọi OpenAI + fallback heuristic.
+- `StorageService` validate dung lượng/định dạng ảnh; `AiService` gọi Gemini + fallback heuristic.
 - Docker Compose (Postgres 17 + API), `schema.sql`, seed 9 category.
 - **Mới**: EF Core Migrations (`InitialCreate`) + `DesignTimeDbFactory` (thay `EnsureCreated`).
 
@@ -112,8 +112,8 @@ Quy ước mức độ: **P0** = chặn/không chạy được · **P1** = lỗi
 |----|-----|--------|--------|
 | SRV-01 | P2 | `OnModelCreating` lặp `ToTable(...)` 2 lần (dòng 16-26) — code chết. | `Data/AppDbContext.cs:16-26` |
 | SRV-02 | **P1** | Danh sách category lặp **4 nơi**: seed `Program.cs:37-46`, validate `ExpenseEndpoints.cs:24,45`, `model/Models.kt:32-42`, `schema.sql:50-59` → dễ lệch; chưa có `GET /categories`. | nhiều nơi |
-| SRV-03 | P1 | Model AI mặc định `gpt-5.6-luna` (nghi placeholder); **chưa test với OpenAI key thật**. | `Services/AiService.cs:25,55` |
-| SRV-04 | P1 | Payload Responses API (`input_text`/`input_image`) chưa xác nhận đúng với API thật. | `Services/AiService.cs:23-33` |
+| SRV-03 | **P1** | Đã chốt dùng **Google Gemini** (`gemini-2.5-flash`) thay OpenAI; **cần key thật** để kiểm chứng chất lượng phân loại/phân tích. | `Services/AiService.cs` |
+| SRV-04 | P1 | Cần kiểm chứng payload Gemini `generateContent` (inline_data ảnh + JSON output) với key thật; hiện fallback heuristic khi thiếu key/lỗi. | `Services/AiService.cs` |
 | SRV-05 | P1 | Có bảng `expense_shares` nhưng **không có `GET shared-with-me`** và không UI xem chi tiêu được chia sẻ. | `Endpoints/ExpenseEndpoints.cs` |
 | SRV-06 | P2 | Friends add là `accepted` ngay; không request/accept/reject. | `Endpoints/FriendEndpoints.cs:22` |
 | SRV-07 | P1 | `GET /expenses` **không phân trang**; không filter/sort server-side. | `Endpoints/ExpenseEndpoints.cs:14-19` |

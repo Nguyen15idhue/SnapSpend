@@ -7,6 +7,11 @@
 
 Quy ước trạng thái: `⬜ Chưa làm | 🔄 Đang làm | ✅ Đạt | ❌ Fail`
 
+> **Quyết định kỹ thuật đã chốt (2026-09-14):**
+> - **Database**: PostgreSQL local (docker compose); migration là nguồn schema duy nhất.
+> - **AI provider**: **Google Gemini** (`gemini-2.5-flash`) thay OpenAI; cấu hình qua `Ai:ApiKey` / `Ai:Model` / `Ai:BaseUrl`; giữ fallback heuristic khi thiếu key hoặc lỗi.
+> - **Ảnh**: lưu local (chưa dùng cloud storage).
+
 ---
 
 ## 0. Tiêu chí DONE toàn cục
@@ -144,9 +149,9 @@ Quy ước trạng thái: `⬜ Chưa làm | 🔄 Đang làm | ✅ Đạt | ❌ F
 - Việc làm: nút đổi camera trước/sau, flash, báo lỗi khi `takePicture` fail.
 - Tiêu chí: chụp được cả 2 camera, có thông báo lỗi rõ.
 
-### Bước 3.6: Kiểm chứng AI với key thật (SRV-03, SRV-04)
+### Bước 3.6: Kiểm chứng AI Gemini với key thật (SRV-03, SRV-04)
 - Trạng thái: ⬜
-- Việc làm: cấu hình `OPENAI_API_KEY`, xác nhận tên model + payload Responses API đúng; cập nhật model mặc định; ghi lại response mẫu.
+- Việc làm: cấu hình `GEMINI_API_KEY`, xác nhận model (`gemini-2.5-flash`) + payload `generateContent` (inline_data ảnh, JSON output) đúng; ghi lại response mẫu.
 - Tiêu chí: classify + analyze trả kết quả thật; fallback vẫn hoạt động khi không có key.
 
 **Kết quả GĐ3:** ⬜ | Ngày: ___ | Ghi chú: ___
