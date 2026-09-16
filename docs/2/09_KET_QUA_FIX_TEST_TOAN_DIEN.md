@@ -17,12 +17,12 @@
 - Ghi chú: lúc chạy baseline API dev đang giữ DLL (`dotnet SnapSpend.Api.dll`, PID 20696) gây lỗi MSB3027 — đã dừng process rồi chạy lại xanh. Khi chạy test nhớ tắt API dev trước.
 
 ### Đáp án `expected.json`
-- Trạng thái: 🔄 (bản nháp xong, chờ người dùng duyệt lần cuối)
+- Trạng thái: ✅ Đạt (người dùng chốt 2026-09-16, giữ nguyên tên món trong `needsReview`)
 - Đủ 13 bill (file/merchant/total/items/category): ✅ (tổng khớp đáp án chat 2026-09-16; tổng các món đã cộng tay kiểm tra: bill1.jpg 326k, bill1.png 1.053k, bill2.jpg 1.795k, bill3.jpg 54k, bill4.webp 324.555, bill5.webp 7.751k, bill6.png 3.584k, bill7.jpg 1.284k, bill8.jpg 136k, bill9.jpeg 260k, bill10.webp 1.550k, bill12.png 6.407.500, bill13.jpg 225k)
 - Tên món chưa chắc (cần duyệt): bill2 dòng 3, bill4 dòng 3, bill5 (dòng 5,7,8,10,17), bill7 toàn bộ viết tay (ghi trong `needsReview` của file JSON).
 - Ghi chú:
 
-**Kết quả F0:** 🔄 (chờ duyệt expected.json)
+**Kết quả F0:** ✅ | Ngày nghiệm thu: 2026-09-16 | Người duyệt: user
 
 ---
 
