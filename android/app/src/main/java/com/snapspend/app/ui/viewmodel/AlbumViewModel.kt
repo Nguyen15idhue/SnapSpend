@@ -5,11 +5,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.snapspend.app.data.remote.ExpenseDto
 import com.snapspend.app.data.repository.SnapSpendRepository
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -37,38 +40,63 @@ class AlbumViewModel(private val repo: SnapSpendRepository, private val handle: 
     val selectedIds: StateFlow<Set<Long>> = _selectedIds.asStateFlow()
     private val _bulkDeleted = MutableStateFlow(0)
     val bulkDeleted: StateFlow<Int> = _bulkDeleted.asStateFlow()
+    // Snapshot hàng loạt vừa xóa để hoàn tác (giữ đủ ảnh + aiConfidence).
+    private val _lastBulkDeleted = MutableStateFlow<List<ExpenseDto>>(emptyList())
 
     companion object {
         const val PAGE_SIZE = 10
-        /** Kích thước chunk khi tải toàn bộ lúc tìm kiếm/lọc. */
-        const val REFRESH_CHUNK = 50
+        /** Debounce tìm kiếm để mỗi lần gõ nhanh chỉ gọi 1 request. */
+        const val SEARCH_DEBOUNCE_MS = 400L
     }
 
-    // Danh sách hiển thị = lọc + sắp xếp, tính lại tự động khi state đổi.
+    init {
+        // Gõ tìm kiếm: debounce 400ms rồi mới gọi server (tránh spam request mỗi ký tự).
+        viewModelScope.launch {
+            @OptIn(FlowPreview::class)
+            query.debounce(SEARCH_DEBOUNCE_MS).drop(1).collect {
+                handle["page"] = 1
+                clearSelection()
+                loadCurrent()
+            }
+        }
+    }
+
+    // Danh sách hiển thị = trang hiện tại do server lọc/sắp xếp (không lọc client để đủ dữ liệu).
     val visible: StateFlow<List<ExpenseDto>> =
-        combine(expenses, query, filterCat, sortDesc) { list, q, cat, desc ->
-            list.filter { (q.isBlank() || (it.note ?: "").contains(q, ignoreCase = true)) && (cat == null || it.category == cat) }
-                .let { if (desc) it.sortedWith(compareByDescending<ExpenseDto> { it.expenseDate }.thenByDescending { it.id })
-                      else it.sortedWith(compareBy<ExpenseDto> { it.expenseDate }.thenBy { it.id }) }
+        combine(expenses, sortDesc) { list, desc ->
+            if (desc) list.sortedWith(compareByDescending<ExpenseDto> { it.expenseDate }.thenByDescending { it.id })
+            else list.sortedWith(compareBy<ExpenseDto> { it.expenseDate }.thenBy { it.id })
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun onQuery(v: String) { handle["query"] = v; ensureFullForSearch() }
-    fun onFilter(cat: String?) { handle["filterCat"] = cat; ensureFullForSearch() }
-    fun toggleSort() { handle["sortDesc"] = !sortDesc.value }
+    fun onQuery(v: String) { handle["query"] = v }
+    fun onFilter(cat: String?) {
+        handle["filterCat"] = cat
+        handle["page"] = 1
+        clearSelection()
+        loadCurrent()
+    }
+    fun toggleSort() {
+        handle["sortDesc"] = !sortDesc.value
+        loadCurrent()
+    }
 
     /** Tổng số trang từ tổng bản ghi (ít nhất 1). */
     fun totalPages(): Int = maxOf(1, (_totalCount.value + PAGE_SIZE - 1) / PAGE_SIZE)
 
-    /** Có đang tìm/lọc không — khi đó cache giữ TOÀN BỘ để lọc đúng, ẩn thanh trang. */
-    fun isSearching(): Boolean = query.value.isNotBlank() || filterCat.value != null
+    private fun sortParam(): String? = if (sortDesc.value) null else "oldest"
 
-    fun refresh() {
+    private fun loadCurrent() {
         viewModelScope.launch {
             _refreshing.value = true
             _loadError.value = null
             runCatching {
-                if (isSearching()) repo.refreshAllExpenses(REFRESH_CHUNK)
-                else repo.loadPage(page.value, PAGE_SIZE)
+                repo.loadPage(
+                    page = page.value,
+                    pageSize = PAGE_SIZE,
+                    search = query.value.takeIf { it.isNotBlank() },
+                    category = filterCat.value,
+                    sort = sortParam()
+                )
             }
                 .onSuccess { total -> _totalCount.value = total }
                 .onFailure { _loadError.value = it.message ?: "Tải thất bại" }
@@ -76,34 +104,24 @@ class AlbumViewModel(private val repo: SnapSpendRepository, private val handle: 
         }
     }
 
-    /** Nhảy tới trang N (chỉ khi không tìm/lọc). */
+    fun refresh() {
+        loadCurrent()
+    }
+
+    /** Nhảy tới trang N (kể cả khi đang tìm/lọc — server phân trang). */
     fun goToPage(p: Int) {
         val target = p.coerceIn(1, totalPages())
-        if (target == page.value || isSearching()) return
+        if (target == page.value) {
+            loadCurrent()
+            return
+        }
         handle["page"] = target
         clearSelection()
-        viewModelScope.launch {
-            _refreshing.value = true
-            _loadError.value = null
-            runCatching { repo.loadPage(target, PAGE_SIZE) }
-                .onSuccess { total -> _totalCount.value = total }
-                .onFailure { _loadError.value = it.message ?: "Tải trang thất bại" }
-            _refreshing.value = false
-        }
+        loadCurrent()
     }
 
     fun nextPage() = goToPage(page.value + 1)
     fun prevPage() = goToPage(page.value - 1)
-
-    /** Khi bắt đầu tìm/lọc: tải toàn bộ về cache một lần để kết quả đúng. */
-    private fun ensureFullForSearch() {
-        if (!isSearching()) return
-        viewModelScope.launch {
-            runCatching { repo.refreshAllExpenses(REFRESH_CHUNK) }
-                .onSuccess { total -> _totalCount.value = total }
-                .onFailure { _loadError.value = it.message ?: "Tải thất bại" }
-        }
-    }
 
     // --- Chọn nhiều ---
     /** Vào chế độ chọn (không chọn sẵn gì) — cho nút "Chọn" trên header. */
@@ -128,22 +146,46 @@ class AlbumViewModel(private val repo: SnapSpendRepository, private val handle: 
     fun deleteSelected() {
         val ids = _selectedIds.value.toList()
         if (ids.isEmpty()) return
+        // Giữ snapshot để hoàn tác (đủ amount, category, note, date, ảnh, aiConfidence).
+        val snapshot = visible.value.filter { ids.contains(it.id) }
         viewModelScope.launch {
             runCatching { repo.deleteExpenses(ids) }
                 .onSuccess { n ->
                     _bulkDeleted.value = n
+                    _lastBulkDeleted.value = snapshot.take(n)
                     clearSelection()
                     // Xóa hết trang cuối → lùi về trang trước để không trắng trang.
                     val newTotal = _totalCount.value - n
-                    if (!isSearching() && page.value > 1 && newTotal <= (page.value - 1) * PAGE_SIZE) {
-                        goToPage(page.value - 1)
-                    } else refresh()
+                    if (page.value > 1 && newTotal <= (page.value - 1) * PAGE_SIZE) {
+                        handle["page"] = page.value - 1
+                    }
+                    loadCurrent()
                 }
                 .onFailure { _loadError.value = it.message ?: "Xóa thất bại" }
         }
     }
 
-    fun clearBulkDeleted() { _bulkDeleted.value = 0 }
+    fun clearBulkDeleted() { _bulkDeleted.value = 0; _lastBulkDeleted.value = emptyList() }
+
+    /** Hoàn tác xóa hàng loạt: khôi phục từng bản ghi, báo số khôi phục được khi lỗi giữa chừng. */
+    fun undoBulkDelete() {
+        val items = _lastBulkDeleted.value
+        _bulkDeleted.value = 0
+        if (items.isEmpty()) return
+        _lastBulkDeleted.value = emptyList()
+        viewModelScope.launch {
+            var restored = 0
+            var lastErr: String? = null
+            for (e in items) {
+                runCatching { repo.restoreExpense(e) }
+                    .onSuccess { restored++ }
+                    .onFailure { lastErr = it.message ?: "Hoàn tác thất bại" }
+            }
+            if (restored < items.size) _loadError.value = "Chỉ khôi phục được $restored/${items.size} khoản${lastErr?.let { ": $it" } ?: ""}"
+            else _loadError.value = null
+            loadCurrent()
+        }
+    }
 
     private val deletingIds = mutableSetOf<Long>()
 

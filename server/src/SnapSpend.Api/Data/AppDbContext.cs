@@ -10,6 +10,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Friendship> Friendships => Set<Friendship>();
     public DbSet<ExpenseShare> ExpenseShares => Set<ExpenseShare>();
+    public DbSet<TotalKeyword> TotalKeywords => Set<TotalKeyword>();
+    public DbSet<NoisePattern> NoisePatterns => Set<NoisePattern>();
+    public DbSet<CategoryKeyword> CategoryKeywords => Set<CategoryKeyword>();
+    public DbSet<CategoryAlias> CategoryAliases => Set<CategoryAlias>();
+    public DbSet<BoilerplatePattern> BoilerplatePatterns => Set<BoilerplatePattern>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -29,5 +34,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         // Seed 9 category vào migration: nguồn schema duy nhất, idempotent.
         b.Entity<Category>().HasData(CategoryCatalog.AsEntities());
+
+        // Seed engine nhận diện: thêm case mới = thêm row + migration mới (không release app).
+        b.Entity<TotalKeyword>().ToTable("total_keywords");
+        b.Entity<NoisePattern>().ToTable("noise_patterns");
+        b.Entity<CategoryKeyword>().ToTable("category_keywords");
+        b.Entity<CategoryAlias>().ToTable("category_aliases");
+        b.Entity<BoilerplatePattern>().ToTable("boilerplate_patterns");
+        b.Entity<TotalKeyword>().HasData(RecognitionSeed.TotalKeywords());
+        b.Entity<NoisePattern>().HasData(RecognitionSeed.NoisePatterns());
+        b.Entity<CategoryKeyword>().HasData(RecognitionSeed.CategoryKeywords());
+        b.Entity<CategoryAlias>().HasData(RecognitionSeed.CategoryAliases());
+        b.Entity<BoilerplatePattern>().HasData(RecognitionSeed.BoilerplatePatterns());
     }
 }

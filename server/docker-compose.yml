@@ -17,9 +17,12 @@
       timeout: 5s
       retries: 10
 
+  # Lab thử nghiệm model local (mặc định TẮT để nhẹ máy): bật bằng
+  # docker compose --profile ai up -d ollama
   ollama:
     image: ollama/ollama:latest
     container_name: snapspend-ollama
+    profiles: ["ai"]
     restart: unless-stopped
     ports:
       - "11434:11434"

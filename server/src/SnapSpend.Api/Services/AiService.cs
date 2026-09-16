@@ -11,33 +11,31 @@ public record AnalysisResult(string Summary, List<string> Trends, List<string> A
 /// Không có API key hoặc gọi lỗi thì tự fallback heuristic/analysis mẫu (không chặn luồng).
 /// Cấu hình: Ai:ApiKey, Ai:Model, Ai:BaseUrl.
 /// </summary>
-public class AiService(IConfiguration config, IHttpClientFactory httpClientFactory, OpenRouterService openRouter)
+public class AiService(IConfiguration config, IHttpClientFactory httpClientFactory, OpenRouterService openRouter, RecognitionService recognition)
 {
-    private static readonly string[] Allowed = ["food", "shopping", "transport", "entertainment", "housing", "health", "education", "bills", "other"];
-
     private string? ApiKey => config["Ai:ApiKey"];
     private string Model => config["Ai:Model"] is { Length: > 0 } m ? m : "gemini-3.8-flash";
     private string BaseUrl => (config["Ai:BaseUrl"] is { Length: > 0 } b ? b : "https://generativelanguage.googleapis.com/v1beta").TrimEnd('/');
 
     public async Task<ClassificationResult> ClassifyAsync(string? imagePath, string? note)
     {
-        if (!string.IsNullOrWhiteSpace(note)) return Heuristic(note);
-        if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath)) return Heuristic(note);
+        if (!string.IsNullOrWhiteSpace(note)) return await recognition.ClassifyTextAsync(note);
+        if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath)) return await recognition.ClassifyTextAsync(note);
         var bytes = await File.ReadAllBytesAsync(imagePath);
         var mime = Path.GetExtension(imagePath).ToLowerInvariant() switch { ".png" => "image/png", ".webp" => "image/webp", _ => "image/jpeg" };
         return await ClassifyAsync(bytes, mime, note);
     }
 
     /// <summary>
-    /// Phân loại: có ghi chú -> engine nội bộ (tức thời, không phụ thuộc mạng/quota);
+    /// Phân loại: có ghi chú -> engine nội bộ từ DB (tức thời, không phụ thuộc mạng/quota);
     /// không có ghi chú -> thử Gemini theo ảnh (timeout ngắn), lỗi thì fallback.
     /// </summary>
     public async Task<ClassificationResult> ClassifyAsync(byte[]? image, string? mime, string? note)
     {
-        if (!string.IsNullOrWhiteSpace(note)) return Heuristic(note);
+        if (!string.IsNullOrWhiteSpace(note)) return await recognition.ClassifyTextAsync(note);
 
         var key = ApiKey;
-        if (string.IsNullOrWhiteSpace(key) || image is not { Length: > 0 }) return Heuristic(note);
+        if (string.IsNullOrWhiteSpace(key) || image is not { Length: > 0 }) return await recognition.ClassifyTextAsync(note);
 
         try
         {
@@ -60,40 +58,19 @@ public class AiService(IConfiguration config, IHttpClientFactory httpClientFacto
             using var doc = JsonDocument.Parse(text);
             var raw = doc.RootElement.TryGetProperty("category", out var cat) ? cat.GetString() : null;
             var confidence = doc.RootElement.TryGetProperty("confidence", out var c) ? c.GetDouble() : 0.5;
-            var mapped = MapCategory(raw);
-            // Ảnh: danh mục chính từ model + các danh mục heuristic thấy trong ghi chú (nếu có).
-            var extra = Heuristic(note).Candidates;
+            var mapped = await recognition.MapCategoryAsync(raw);
+            // Ảnh: danh mục chính từ model + các danh mục engine thấy trong ghi chú (nếu có).
+            var extra = (await recognition.ClassifyTextAsync(note)).Candidates;
             var candidates = new List<string>();
             if (mapped is not null) candidates.Add(mapped);
             candidates.AddRange(extra.Where(x => !candidates.Contains(x)));
             return mapped is not null ? new(mapped, Math.Clamp(confidence, 0, 1), candidates) : new("other", 0.2, candidates);
         }
-        catch { return Heuristic(note); }
+        catch { return await recognition.ClassifyTextAsync(note); }
     }
 
-    /// <summary>Phân loại text thuần bằng engine nội bộ (không cần key/quota).</summary>
-    public static ClassificationResult ClassifyText(string? note) => Heuristic(note);
-    private static string? MapCategory(string? raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw)) return null;
-        var norm = Normalize(raw);
-        if (Allowed.Contains(norm)) return norm;
-        return Aliases.TryGetValue(norm, out var mapped) ? mapped : null;
-    }
-
-    // Khóa đã bỏ dấu để so khớp với Normalize().
-    private static readonly Dictionary<string, string> Aliases = new(StringComparer.Ordinal)
-    {
-        ["an uong"] = "food", ["do an"] = "food", ["thuc pham"] = "food", ["restaurant"] = "food", ["meal"] = "food", ["drink"] = "food", ["cafe"] = "food", ["coffee"] = "food", ["food delivery"] = "food", ["bakery"] = "food", ["grocery"] = "food", ["convenience"] = "food", ["sieu thi mini"] = "food",
-        ["mua sam"] = "shopping", ["do gia dung"] = "shopping", ["electronics"] = "shopping", ["appliance"] = "shopping", ["household"] = "shopping", ["goods"] = "shopping", ["supermarket"] = "shopping", ["sieu thi"] = "shopping", ["market"] = "shopping",
-        ["di lai"] = "transport", ["giao thong"] = "transport", ["taxi"] = "transport", ["grab"] = "transport", ["fuel"] = "transport", ["gas"] = "transport", ["airline"] = "transport",
-        ["giai tri"] = "entertainment", ["entertainment"] = "entertainment", ["movie"] = "entertainment", ["cinema"] = "entertainment", ["hotel"] = "entertainment",
-        ["nha o"] = "housing", ["housing"] = "housing", ["rent"] = "housing",
-        ["suc khoe"] = "health", ["health"] = "health", ["medical"] = "health", ["medicine"] = "health", ["pharmacy"] = "health", ["hospital"] = "health",
-        ["giao duc"] = "education", ["hoc tap"] = "education", ["education"] = "education", ["school"] = "education",
-        ["hoa don"] = "bills", ["bills"] = "bills", ["utility"] = "bills", ["utilities"] = "bills", ["electricity"] = "bills", ["water"] = "bills", ["internet"] = "bills", ["dien"] = "bills", ["dien luc"] = "bills", ["tien dien"] = "bills",
-        ["khac"] = "other", ["other"] = "other"
-    };
+    /// <summary>Phân loại text thuần bằng engine nội bộ từ DB (không cần key/quota).</summary>
+    public Task<ClassificationResult> ClassifyText(string? note) => recognition.ClassifyTextAsync(note);
 
     public async Task<AnalysisResult> AnalyzeAsync(string summary)
     {
@@ -152,57 +129,6 @@ public class AiService(IConfiguration config, IHttpClientFactory httpClientFacto
     }
 
     private static List<string> ReadStrings(JsonElement root, string name) => root.TryGetProperty(name, out var arr) ? arr.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => x.Length > 0).ToList() : [];
-
-    private static readonly (string Cat, double Conf, string[] Keys)[] Rules =
-    [
-        ("food", 0.82, ["grabfood", "grab food", "shopeefood", "shopee food", "befood", "gofood", "pho", "com ", "com,", "bun", "mi ", "mi,", "hao hao", "banh mi", "banh", "an uong", "an sang", "an trua", "an toi", "do an", "mon an", "thuc an", "thuc pham", "cafe", "ca phe", "tra sua", "nha hang", "quan an", "lau ", "nuong", "canh ", "sup ", "chien ", "buffet", "food", "restaurant", "highlands", "phuc long", "the coffee house", "starbucks", "kfc", "lotteria", "jollibee", "pizza", "sushi", "di cho", "tap hoa", "bach hoa xanh", "winmart", "circle k", "ministop", "gs25", "family mart", "big c", "aeon", "coopmart", "mega market", "com phan", "com binh dan", "hu tieu", "che ", "sinh to", "nuoc mia", "nuoc ep", "an vat", "ga ran", "tra chanh", "tra dao", "caphe", "espresso", "latte", "grocery", "bakery", "cho dong", "cho "]),
-        ("shopping", 0.8, ["mua sam", "shop", "quan ao", "ao thun", "ao so mi", "ao khoac", "ao len", "giay", "giay dep", "dep quai", "dep le", "tui xach", "dien may", "dien may xanh", "the gioi di dong", "fpt shop", "cellphones", "hoang ha", "mediamart", "nguyen kim", "cho lon", "gia dung", "sieu thi", "shopee", "lazada", "tiki", "quat", "tivi", "tu lanh", "zara", "uniqlo", "adidas", "nike", "my pham", "guardian", "hieu sach", "fahasa", "van phong pham", "noi that", "do choi", "concung", "con cung", "xiaomi", "samsung", "iphone", "apple", "oppo", "laptop", "tai nghe", "son moi", "mua "]),
-        ("transport", 0.8, ["grab", "taxi", "xang", "ve xe ", "gui xe", "xe may", "xe om", "tien xe", "di xe", "bus", "tau hoa", "tau cao toc", "may bay", "be ", "grabbike", "grabcar", "grab bike", "grab car", "xanh sm", "gojek", "vietjet", "vietnam airlines", "bamboo", "ve may bay", "san bay", "ben xe", "ve tau", "duong sat", "metro", "petrolimex", "do xang", "rua xe", "sua xe", "thay nhot", "dau nhot", "dang kiem", "phi duong bo", "cao toc", "traveloka", "lop xe"]),
-        ("entertainment", 0.75, ["phim", "cgv", "game", "karaoke", "nhac", "concert", "du lich", "vui choi", "gym", "netflix", "spotify", "steam", "lotte cinema", "galaxy cinema", "massage", "spa", "cinema", "vinwonders", "dam sen", "suoi tien", "bao tang", "rap chieu phim", "khach san", "resort", "ve so", "lam dep", "mua ve", "ve xem phim", "kham pha"]),
-        ("health", 0.8, ["thuoc", "kham", "benh", "y te", "nha khoa", "suc khoe", "pharmacity", "long chau", "an khang", "nha thuoc", "quay thuoc", "hieu thuoc", "medlatec", "vinmec", "hoan my", "tam anh", "cho ray", "bach mai", "viet duc", "kham benh", "sieu am", "xet nghiem", "x quang", "noi soi", "tiem chung", "vacxin", "vaccine", "rang ham mat", "bao hiem y te", "kinh mat"]),
-        ("education", 0.8, ["hoc", "sach", "khoa hoc", "hoc phi", "truong", "truong hoc", "lop ", "gia su", "giao duc", "ielts", "toeic", "toefl", "luyen thi", "trung tam", "coursera", "udemy", "hoc vien", "dai hoc", "cao dang", "tieu hoc", "mam non", "dong phuc", "tap vo", "but bi", "cap sach", "hoc lieu"]),
-        ("housing", 0.78, ["cho thue", "thue nha", "tien thue", "tien phong", "phong tro", "chung cu", "ky tuc xa", "tien nha", "phi quan ly", "phi dich vu", "phi gui xe thang", "sua nha", "chong tham", "son nha", "ve sinh may lanh"]),
-        ("bills", 0.78, ["dien luc", "tien dien", "tien nuoc", "nuoc sach", "cap nuoc", "internet", "dien thoai", "cuoc", "truyen hinh", "gas", "hoa don", "evn", "vnpt", "viettel", "mobifone", "vinaphone", "fpt", "cmc", "sctv", "k+", "nap tien", "nap card", "momo", "zalopay", "vnpay", "chuyen khoan", "phi duy tri"])
-    ];
-
-    /// <summary>
-    /// Phân loại theo từ khóa (bỏ dấu); từ khóa khớp DÀI NHẤT thắng (cụ thể nhất đúng nhất,
-    /// VD "grabfood" thắng "grab", "cho thue" thắng "cho "); hòa thì giữ thứ tự Rules.
-    /// Trả danh mục chính + tất cả danh mục khớp (cho hóa đơn nhiều loại).
-    /// </summary>
-    private static ClassificationResult Heuristic(string? note)
-    {
-        var s = Normalize(note);
-        if (s.Length == 0) return new("other", 0.2, []);
-        ClassificationResult? best = null;
-        var bestLen = 0;
-        var matched = new List<string>();
-        foreach (var r in Rules)
-        {
-            var hit = 0;
-            foreach (var k in r.Keys)
-                if (s.Contains(k))
-                {
-                    hit = Math.Max(hit, k.Length);
-                    if (!matched.Contains(r.Cat)) matched.Add(r.Cat);
-                }
-            if (hit > bestLen) { bestLen = hit; best = new(r.Cat, r.Conf, []); }
-        }
-        if (best is null) return new("other", 0.3, []);
-        return best with { Candidates = matched };
-    }
-
-    /// <summary>Bỏ dấu tiếng Việt + lower để so khớp không phụ thuộc dấu ("Phở" = "Pho").</summary>
-    private static string Normalize(string? text)
-    {
-        if (string.IsNullOrWhiteSpace(text)) return "";
-        var formD = text.Normalize(NormalizationForm.FormD);
-        var sb = new StringBuilder(formD.Length);
-        foreach (var ch in formD)
-            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(ch) != System.Globalization.UnicodeCategory.NonSpacingMark)
-                sb.Append(ch);
-        return sb.ToString().Normalize(NormalizationForm.FormC).ToLowerInvariant();
-    }
 
     /// <summary>
     /// Phân tích hành vi từ chính số liệu thống kê (không cần quota AI): tổng, trung bình,

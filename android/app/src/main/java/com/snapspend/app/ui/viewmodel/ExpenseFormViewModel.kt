@@ -20,6 +20,9 @@ class ExpenseFormViewModel(private val repo: SnapSpendRepository, private val ha
     private val ocrText: StateFlow<String> = handle.getStateFlow("ocrText", "")
     private val _confidence = MutableStateFlow<Double?>(null)
     val confidence: StateFlow<Double?> = _confidence.asStateFlow()
+    // Nhắc kiểm tra số tiền khi OCR tin cậy thấp (MEDIUM/LOW) — xóa khi người dùng sửa/tự điền lại.
+    private val _amountHint = MutableStateFlow<String?>(null)
+    val amountHint: StateFlow<String?> = _amountHint.asStateFlow()
     // Các danh mục AI phát hiện (hóa đơn có thể gồm nhiều loại).
     val candidates: StateFlow<List<String>> = handle.getStateFlow("candidates", emptyList<String>())
     private val _classifying = MutableStateFlow(false)
@@ -32,7 +35,7 @@ class ExpenseFormViewModel(private val repo: SnapSpendRepository, private val ha
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    fun onAmount(v: String) { handle["amount"] = v.filter(Char::isDigit); _error.value = null }
+    fun onAmount(v: String) { handle["amount"] = v.filter(Char::isDigit); _error.value = null; _amountHint.value = null }
     // Người dùng tự chọn -> bỏ gợi ý AI.
     fun onCategory(v: String) { handle["category"] = v; _confidence.value = null }
     fun onNote(v: String) { handle["note"] = v }
@@ -43,6 +46,7 @@ class ExpenseFormViewModel(private val repo: SnapSpendRepository, private val ha
             handle["ocrText"] = fullText.take(600)
             if (summary.isNotBlank()) handle["note"] = summary
             _confidence.value = null
+            _amountHint.value = null
         }
     }
 
@@ -68,14 +72,24 @@ class ExpenseFormViewModel(private val repo: SnapSpendRepository, private val ha
         val totalOk = res.total != null && res.total in 1..9_999_999_999
         if (summary.isBlank() && !totalOk) return false
         if (summary.isNotBlank()) handle["note"] = summary
-        if (totalOk && amount.value.isBlank()) handle["amount"] = res.total.toString()
+        // Model nhỏ hay bịa số (VD chữ viết tay) — số tiền AI chỉ dùng khi khớp luật nội bộ (±5%).
+        val aiTotal = if (totalOk) res.total else null
+        val rule = com.snapspend.app.data.ocr.ReceiptOcr.guessAmount(text)
+        val corroborated = aiTotal != null && rule != null
+            && rule.level != com.snapspend.app.data.ocr.ReceiptOcr.AmountLevel.LOW
+            && kotlin.math.abs(aiTotal - rule.amount) * 100.0 / rule.amount <= 5.0
+        if (corroborated && amount.value.isBlank()) handle["amount"] = aiTotal.toString()
         return true
     }
 
     /** Điền số tiền tách từ hóa đơn nếu người dùng chưa nhập. */
     fun prefillAmount(value: Long) {
         if (amount.value.isBlank()) handle["amount"] = value.toString()
+        _amountHint.value = null
     }
+
+    /** Gắn nhắc kiểm tra số tiền (OCR tin cậy thấp). */
+    fun flagAmountHint(hint: String) { _amountHint.value = hint }
 
     fun amountOk(): Boolean = (amount.value.toLongOrNull() ?: 0L) > 0
 
@@ -141,5 +155,5 @@ class ExpenseFormViewModel(private val repo: SnapSpendRepository, private val ha
         }
     }
 
-    fun reset() { handle["amount"] = ""; handle["category"] = ""; handle["note"] = ""; handle["ocrText"] = ""; handle["candidates"] = emptyList<String>(); _confidence.value = null; _items.value = emptyList(); _itemCats.value = emptyMap() }
+    fun reset() { handle["amount"] = ""; handle["category"] = ""; handle["note"] = ""; handle["ocrText"] = ""; handle["candidates"] = emptyList<String>(); _confidence.value = null; _amountHint.value = null; _items.value = emptyList(); _itemCats.value = emptyMap() }
 }

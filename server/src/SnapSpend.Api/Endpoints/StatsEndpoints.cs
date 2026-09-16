@@ -27,21 +27,6 @@ public static class StatsEndpoints
                 byDay = data.GroupBy(x => x.ExpenseDate).OrderBy(g => g.Key).ToDictionary(g => g.Key.ToString("yyyy-MM-dd"), g => g.Sum(x => x.Amount))
             });
         });
-        g.MapPost("/ai/analyze", async (string from, string to, ClaimsPrincipal p, AppDbContext db, AiService ai) => {
-            var uid = long.Parse(p.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            if (!TryParseDate(from, out var f) || !TryParseDate(to, out var t)) return Results.BadRequest(new { message = "Invalid date. Use yyyy-MM-dd." });
-            if (f > t) return Results.BadRequest(new { message = "from must be on or before to." });
-            var data = await db.Expenses.Where(x => x.UserId == uid && x.ExpenseDate >= f && x.ExpenseDate <= t).ToListAsync();
-            var lines = new List<string> { $"Period: {f:yyyy-MM-dd} to {t:yyyy-MM-dd}", $"Total: {data.Sum(x => x.Amount)}", $"Average daily: {data.Sum(x => x.Amount) / (double)Math.Max(1, t.DayNumber - f.DayNumber + 1)}" };
-            // So sánh với kỳ liền trước (cùng độ dài) để phân tích có chiều sâu.
-            var spanDays = Math.Max(1, t.DayNumber - f.DayNumber + 1);
-            var prevTotal = await db.Expenses.Where(x => x.UserId == uid && x.ExpenseDate >= f.AddDays(-spanDays) && x.ExpenseDate <= f.AddDays(-1)).SumAsync(x => x.Amount);
-            lines.Add($"Previous total: {prevTotal}");
-            lines.AddRange(data.GroupBy(x => x.Category).OrderByDescending(g => g.Sum(x => x.Amount)).Select(g => $"Category {g.Key}: {g.Sum(x => x.Amount)}"));
-            lines.AddRange(data.GroupBy(x => x.ExpenseDate).OrderByDescending(g => g.Sum(x => x.Amount)).Take(7).Select(g => $"Day {g.Key:yyyy-MM-dd}: {g.Sum(x => x.Amount)}"));
-            var result = await ai.AnalyzeAsync(string.Join("\n", lines));
-            return Results.Ok(result);
-        });
         // Phân loại trước khi lưu: nhận ảnh + ghi chú, trả category/confidence để client cho sửa.
         g.MapPost("/ai/classify", async (HttpRequest request, AiService ai) => {
             var form = await request.ReadFormAsync();
@@ -52,14 +37,16 @@ public static class StatsEndpoints
             await file.CopyToAsync(ms);
             return Results.Ok(await ai.ClassifyAsync(ms.ToArray(), file.ContentType, note));
         });
-        // Phân loại từng món (hóa đơn nhiều loại) bằng engine nội bộ; trả danh mục từng món.
-        g.MapPost("/ai/classify-items", async (ClassifyItemsRequest req, AiService ai) => {
-            await Task.CompletedTask;
-            var items = (req.Items ?? new List<string>()).Take(20).Select(name => {
-                var r = AiService.ClassifyText(name);
-                return new ItemCategoryDto(name, r.Category, r.Confidence);
-            }).ToList();
-            return Results.Ok(items);
+        // Phân loại từng món (hóa đơn nhiều loại) bằng engine nội bộ từ DB; trả danh mục từng món.
+        g.MapPost("/ai/classify-items", async (ClassifyItemsRequest req, RecognitionService recognition) => {
+            var items = (req.Items ?? new List<string>()).Take(20).ToList();
+            var result = new List<ItemCategoryDto>();
+            foreach (var name in items)
+            {
+                var r = await recognition.ClassifyTextAsync(name);
+                result.Add(new ItemCategoryDto(name, r.Category, r.Confidence));
+            }
+            return Results.Ok(result);
         });
         // Phân tích cơ bản: chỉ số liệu (tổng, trung bình, top danh mục, mức độ) — không cần AI.
         g.MapPost("/ai/analyze-basic", async (string from, string to, ClaimsPrincipal p, AppDbContext db) => {

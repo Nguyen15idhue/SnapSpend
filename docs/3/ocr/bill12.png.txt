@@ -1,0 +1,28 @@
+HÓA ĐƠN GIÁ TRỊ GIA TĂNG (VAT INVOICE)
+Ký hiệu (Serial No): 1C23TTN Số (No): 409
+Ngày 25 tháng 6 năm 2023
+Mã cơ quan thuế: 009D4DBB2633644EF7B80BD334B1E28118
+Tên người bán (Seller): DOANH NGHIỆP TƯ NHÂN TM DU LỊCH NHÀ HÀNG TUẤN NĂM
+Địa chỉ (Address): Nhà ông Phạm Gia Tuấn, Khu phố Hồng Thắng, Phường Quảng Cư, Thành phố Sầm Sơn, Tỉnh Thanh Hoá, Việt Nam
+Mã số thuế (Tax code): 2802410678 Điện thoại (Tel):
+Số tài khoản (Account no.): Ngân hàng (Bank):
+Họ tên người mua (Customer):
+Tên đơn vị (Company): Công Ty
+Địa chỉ (Address): Hà Nội, Việt Nam
+Mã số thuế (Tax code): 1234567890
+Đồng tiền thanh toán (Currency): VND
+Số tài khoản (Account no.): Ngân hàng (Bank):
+Hình thức thanh toán (Payment method): Tiền mặt/Chuyển khoản
+Stt Tên hàng hóa, dịch vụ Đvt Số lượng Đơn giá Thành tiền trước thuế Thuế suất Tiền thuế Thành tiền
+1 Ghẹ hấp Kg 2,1 1.050.000 2.205.000 10% 220.500 2.425.500
+2 Mực hấp Đĩa 2 300.000 600.000 10% 60.000 660.000
+3 Ngao biển hấp Kg 2,2 250.000 550.000 10% 55.000 605.000
+4 Tôm nướng Kg 2,6 950.000 2.470.000 10% 247.000 2.717.000
+Tổng tiền trước thuế (Total amount): 5.825.000
+Tổng thuế GTGT (Total VAT amount): 582.500
+Tổng tiền thanh toán (Total payment): 6.407.500
+Số tiền viết bằng chữ (Amount in words): Sáu triệu bốn trăm linh bảy nghìn năm trăm đồng./
+Mã nhận hóa đơn: b911882
+Tra cứu tại: http://tra.hoadon.vn
+(Cần kiểm tra, đối chiếu khi lập, giao nhận hóa đơn)
+Trang 1/1

@@ -167,4 +167,87 @@ public class ApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var after = await clientA.GetFromJsonAsync<JsonElement>("/api/expenses");
         Assert.Equal(0, after.GetProperty("total").GetInt32());
     }
+
+    [Fact]
+    public async Task Parse_tra_dung_tong_muc_items_category()
+    {
+        var (client, _, _) = await RegisterAsync();
+        var text = "Coca 2 25.000 50.000\nSprite 2 25.000 50.000\nCoca 2 25.000 50.000\nTonic 2 25.000 50.000\nSoda 1 25.000 25.000\nT.Cộng 9 225,000\nTIỀN MẶT 225,000";
+        var res = await client.PostAsJsonAsync("/api/ai/parse", new { text });
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var json = await res.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(225000, json.GetProperty("total").GetInt64());
+        Assert.Equal("HIGH", json.GetProperty("level").GetString());
+        Assert.Equal(5, json.GetProperty("items").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task Parse_thieu_text_hoac_qua_dai_tra_400()
+    {
+        var (client, _, _) = await RegisterAsync();
+        var empty = await client.PostAsJsonAsync("/api/ai/parse", new { text = "  " });
+        Assert.Equal(HttpStatusCode.BadRequest, empty.StatusCode);
+        var longText = await client.PostAsJsonAsync("/api/ai/parse", new { text = new string('x', 4001) });
+        Assert.Equal(HttpStatusCode.BadRequest, longText.StatusCode);
+        var noAuth = await _factory.CreateClient().PostAsJsonAsync("/api/ai/parse", new { text = "Tổng 10.000" });
+        Assert.Equal(HttpStatusCode.Unauthorized, noAuth.StatusCode);
+    }
+
+    [Fact]
+    public async Task Verify_total_thieu_key_tra_unavailable_khong_500()
+    {
+        var (client, _, _) = await RegisterAsync();
+        var res = await client.PostAsJsonAsync("/api/ai/verify-total", new { ocrText = "Tổng thanh toán 50.000", engineTotal = (long?)null });
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var json = await res.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.False(json.GetProperty("confident").GetBoolean());
+        var bad = await client.PostAsJsonAsync("/api/ai/verify-total", new { ocrText = "  ", engineTotal = (long?)null });
+        Assert.Equal(HttpStatusCode.BadRequest, bad.StatusCode);
+    }
+
+    [Fact]
+    public async Task Classify_items_dung_engine_db()
+    {
+        var (client, _, _) = await RegisterAsync();
+        var res = await client.PostAsJsonAsync("/api/ai/classify-items", new { items = new[] { "Mì Hảo Hảo", "Bida" } });
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var json = await res.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(2, json.GetArrayLength());
+        Assert.Equal("food", json[0].GetProperty("category").GetString());
+        Assert.Equal("entertainment", json[1].GetProperty("category").GetString());
+    }
+
+    [Fact]
+    public async Task Search_tra_dung_ca_co_dau_va_bo_dau()
+    {
+        var (client, _, _) = await RegisterAsync();
+        await CreateExpenseAsync(client, 50000, "food", "phở bò", "2026-09-10");
+        await CreateExpenseAsync(client, 30000, "transport", "xăng xe", "2026-09-11");
+        // Tìm có dấu.
+        var accented = await client.GetFromJsonAsync<JsonElement>("/api/expenses?search=ph%E1%BB%9F");
+        Assert.Equal(1, accented.GetProperty("total").GetInt32());
+        // Tìm bỏ dấu vẫn trúng (bỏ dấu ở server).
+        var plain = await client.GetFromJsonAsync<JsonElement>("/api/expenses?search=pho");
+        Assert.Equal(1, plain.GetProperty("total").GetInt32());
+    }
+
+    [Fact]
+    public async Task Filter_category_va_loc_ngay_ket_hop_phan_trang()
+    {
+        var (client, _, _) = await RegisterAsync();
+        await CreateExpenseAsync(client, 10000, "food", "an sang", "2026-09-01");
+        await CreateExpenseAsync(client, 20000, "food", "an trua", "2026-09-15");
+        await CreateExpenseAsync(client, 30000, "transport", "xe bus", "2026-09-15");
+        // Lọc category.
+        var food = await client.GetFromJsonAsync<JsonElement>("/api/expenses?category=food");
+        Assert.Equal(2, food.GetProperty("total").GetInt32());
+        // Lọc ngày + phân trang.
+        var day = await client.GetFromJsonAsync<JsonElement>("/api/expenses?from=2026-09-15&to=2026-09-15&page=1&pageSize=1");
+        Assert.Equal(2, day.GetProperty("total").GetInt32());
+        Assert.Equal(1, day.GetProperty("items").GetArrayLength());
+        // Category lạ → 400; ngày sai → 400; from > to → 400.
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync("/api/expenses?category=zzz")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync("/api/expenses?from=01/09/2026")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync("/api/expenses?from=2026-09-30&to=2026-09-01")).StatusCode);
+    }
 }

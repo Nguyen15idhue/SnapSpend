@@ -29,10 +29,18 @@ interface SnapSpendRepository {
     suspend fun refreshExpenses(pageSize: Int = 10): Int
 
     /** Nhảy tới trang N (thay toàn bộ cache bằng trang đó), trả về tổng số bản ghi. */
-    suspend fun loadPage(page: Int, pageSize: Int = 10): Int
+    suspend fun loadPage(
+        page: Int,
+        pageSize: Int = 10,
+        search: String? = null,
+        category: String? = null,
+        from: String? = null,
+        to: String? = null,
+        sort: String? = null
+    ): Int
 
-    /** Tải TẤT CẢ các trang (nối lại, thay cache) — dùng khi tìm kiếm/lọc để lọc đúng toàn bộ. */
-    suspend fun refreshAllExpenses(pageSize: Int = 50): Int
+    /** Khoản chi trong một ngày (dùng cho Stats lọc ngày qua server, tối đa 100). */
+    suspend fun dayExpenses(date: String): List<ExpenseDto>
 
     suspend fun createExpense(uri: Uri?, amount: Long, category: String, note: String?, date: String): ExpenseDto
 

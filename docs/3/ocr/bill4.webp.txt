@@ -1,0 +1,24 @@
+SAIGON POS
+PHIẾU TÍNH TIỀN - BILL
+Bàn/Table: T5042
+Phiếu/Ticket: 01-2011/0901-0002
+Giờ vào/Time in: 19/09/2011 5:56:01PM
+Giờ in/Printed time: 15/10/2012 10:05:19AM
+Thu ngân/Cashier: HDOT
+Thực đơn/Menu: 2
+TÊN HÀNG ĐVT SL ĐG THÀNH TIỀN
+Trà Lipton sữa Cốc 1 27.000 27.000
+Trà nhài Cốc 3 19.000 57.000
+Trà quất Cốc 1 22.000 22.000
+Thức uống / Beverage 106.000
+Pizza ham & pineapple Phần 1 65.000 65.000
+Pizza Margherita Phần 1 45.000 45.000
+Pizza hải sản Phần 1 65.000 65.000
+Thức ăn / Food 175.000
+Tổng cộng Sub total 281.000
+5% Phí phục vụ Service 14.050
+10% VAT 29.505
+Thành tiền Total VND 324.555
+Khách đưa Pay by 20,600VND = 1 USD 15,78
+Cảm ơn quý khách và hẹn gặp lại !!!
+Thank you and see you again !!!

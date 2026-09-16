@@ -54,7 +54,9 @@ fun StatsScreen(modifier: Modifier = Modifier) {
     val full by vm.full.collectAsStateWithLifecycle()
     val loading by vm.loading.collectAsStateWithLifecycle()
     val analyzing by vm.analyzing.collectAsStateWithLifecycle()
-    val expenses by vm.expenses.collectAsStateWithLifecycle()
+    val dayExpenses by vm.dayExpenses.collectAsStateWithLifecycle()
+    val dayLoading by vm.dayLoading.collectAsStateWithLifecycle()
+    val dayError by vm.dayError.collectAsStateWithLifecycle()
     var analysisTab by rememberSaveable { mutableIntStateOf(0) }
     var selectedDay by rememberSaveable { mutableStateOf<String?>(null) }
     var asked by rememberSaveable { mutableStateOf<Int?>(null) }
@@ -67,7 +69,7 @@ fun StatsScreen(modifier: Modifier = Modifier) {
         Spacer(Modifier.height(Spacing.s8))
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s8)) {
             listOf("7D", "30D", "Tháng này").forEach { r ->
-                FilterChip(selected = range == r, onClick = { vm.onRange(r); selectedDay = null }, label = { Text(r) })
+                FilterChip(selected = range == r, onClick = { vm.onRange(r); selectedDay = null; vm.clearDay() }, label = { Text(r) })
             }
         }
         Spacer(Modifier.height(Spacing.s12))
@@ -79,24 +81,30 @@ fun StatsScreen(modifier: Modifier = Modifier) {
         Text("Trung bình ${formatVnd(s.averageDaily.toLong())}/ngày", color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(Spacing.s20))
         SectionCard("Chi tiêu theo ngày (bấm vào cột để lọc)") {
-            BarChartV2(s.byDay, Modifier.fillMaxWidth(), onBarClick = { selectedDay = it })
+            BarChartV2(s.byDay, Modifier.fillMaxWidth(), onBarClick = { selectedDay = it; vm.loadDay(it) })
         }
         selectedDay?.let { day ->
-            val dayList = expenses.filter { it.expenseDate == day }
+            val dayList = dayExpenses
             Spacer(Modifier.height(Spacing.s12))
             SectionCard("Ngày $day — ${formatVnd(dayList.sumOf { it.amount })}") {
-                if (dayList.isEmpty()) Text("Không có khoản chi nào.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                dayList.forEach { e ->
-                    Row(Modifier.fillMaxWidth().padding(vertical = Spacing.s4), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Column(Modifier.weight(1f)) {
-                            CategoryLabel(e.category)
-                            e.note?.let { Text(it, style = MaterialTheme.typography.labelSmall) }
+                if (dayLoading) Text("Đang tải…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                else if (dayError != null) {
+                    Text(dayError!!, color = MaterialTheme.colorScheme.error)
+                    TextButton(onClick = { vm.loadDay(day) }, modifier = Modifier.fillMaxWidth()) { Text("Thử lại") }
+                } else {
+                    if (dayList.isEmpty()) Text("Không có khoản chi nào.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    dayList.forEach { e ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = Spacing.s4), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Column(Modifier.weight(1f)) {
+                                CategoryLabel(e.category)
+                                e.note?.let { Text(it, style = MaterialTheme.typography.labelSmall) }
+                            }
+                            AmountText(e.amount)
                         }
-                        AmountText(e.amount)
                     }
                 }
                 Spacer(Modifier.height(Spacing.s8))
-                TextButton(onClick = { selectedDay = null }, modifier = Modifier.fillMaxWidth()) { Text("Bỏ lọc") }
+                TextButton(onClick = { selectedDay = null; vm.clearDay() }, modifier = Modifier.fillMaxWidth()) { Text("Bỏ lọc") }
             }
         }
         Spacer(Modifier.height(Spacing.s12))

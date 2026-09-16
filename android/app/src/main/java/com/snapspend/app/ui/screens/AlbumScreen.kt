@@ -101,12 +101,12 @@ fun AlbumScreen(refreshTick: Int, onOpen: (Long) -> Unit, snack: SnackbarHostSta
         if (r == SnackbarResult.ActionPerformed) vm.undoDelete() else vm.clearUndo()
     }
 
-    // Snackbar sau khi xóa hàng loạt.
+    // Snackbar sau khi xóa hàng loạt (có Hoàn tác).
     LaunchedEffect(bulkDeleted) {
         val n = bulkDeleted
         if (n > 0) {
-            snack.showSnackbar("Đã xóa $n khoản chi")
-            vm.clearBulkDeleted()
+            val r = snack.showSnackbar("Đã xóa $n khoản chi", actionLabel = "Hoàn tác", duration = SnackbarDuration.Short)
+            if (r == SnackbarResult.ActionPerformed) vm.undoBulkDelete() else vm.clearBulkDeleted()
         }
     }
 
@@ -115,7 +115,7 @@ fun AlbumScreen(refreshTick: Int, onOpen: (Long) -> Unit, snack: SnackbarHostSta
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
             title = { Text("Xóa ${selectedIds.size} khoản chi?") },
-            text = { Text("Không thể hoàn tác khi xóa hàng loạt.") },
+            text = { Text("Có thể hoàn tác ngay sau khi xóa.") },
             confirmButton = {
                 Button(
                     onClick = { showDeleteConfirm = false; vm.deleteSelected() },
@@ -151,8 +151,7 @@ fun AlbumScreen(refreshTick: Int, onOpen: (Long) -> Unit, snack: SnackbarHostSta
                     Column {
                         Text("Album", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                         Text(
-                            if (vm.isSearching()) "$totalCount khoản chi (tìm trong tất cả)"
-                            else "Trang $page/${vm.totalPages()} • $totalCount khoản chi",
+                            "Trang $page/${vm.totalPages()} • $totalCount khoản chi",
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -216,9 +215,9 @@ fun AlbumScreen(refreshTick: Int, onOpen: (Long) -> Unit, snack: SnackbarHostSta
                     }
                 }
             }
-            // Thanh chuyển trang cố định dưới list (luôn thấy, không cần cuộn).
+            // Thanh chuyển trang cố định dưới list (luôn thấy, không cần cuộn — kể cả khi tìm/lọc).
             val totalPages = vm.totalPages()
-            if (!refreshing && visible.isNotEmpty() && totalPages > 1 && !vm.isSearching() && !selectionMode) {
+            if (!refreshing && visible.isNotEmpty() && totalPages > 1 && !selectionMode) {
                 PageBar(
                     page = page,
                     totalPages = totalPages,

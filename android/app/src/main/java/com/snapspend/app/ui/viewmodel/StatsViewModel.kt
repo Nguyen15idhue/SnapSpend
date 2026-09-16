@@ -5,13 +5,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.snapspend.app.data.remote.AiAnalysisDto
 import com.snapspend.app.data.remote.BasicAnalysisDto
+import com.snapspend.app.data.remote.ExpenseDto
 import com.snapspend.app.data.remote.StatsDto
 import com.snapspend.app.data.repository.SnapSpendRepository
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
@@ -29,8 +28,13 @@ class StatsViewModel(private val repo: SnapSpendRepository, private val handle: 
     private val _analyzing = MutableStateFlow(false)
     val analyzing: StateFlow<Boolean> = _analyzing.asStateFlow()
 
-    // Luồng chi tiêu để lọc theo ngày ngay trên biểu đồ.
-    val expenses = repo.expenses.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    // Khoản chi của ngày đang chọn trên biểu đồ — tải qua server (đủ dữ liệu, không dùng cache 1 trang).
+    private val _dayExpenses = MutableStateFlow<List<ExpenseDto>>(emptyList())
+    val dayExpenses: StateFlow<List<ExpenseDto>> = _dayExpenses.asStateFlow()
+    private val _dayLoading = MutableStateFlow(false)
+    val dayLoading: StateFlow<Boolean> = _dayLoading.asStateFlow()
+    private val _dayError = MutableStateFlow<String?>(null)
+    val dayError: StateFlow<String?> = _dayError.asStateFlow()
 
     val from: String get() = when (range.value) {
         "7D" -> LocalDate.now().minusDays(6).toString()
@@ -55,6 +59,23 @@ class StatsViewModel(private val repo: SnapSpendRepository, private val handle: 
             _stats.value = runCatching { repo.stats(from, to) }.getOrNull()
             _loading.value = false
         }
+    }
+
+    /** Tải khoản chi của một ngày qua server để lọc đúng (kể cả khoản ở trang khác của Album). */
+    fun loadDay(day: String) {
+        viewModelScope.launch {
+            _dayLoading.value = true
+            _dayError.value = null
+            runCatching { repo.dayExpenses(day) }
+                .onSuccess { _dayExpenses.value = it }
+                .onFailure { _dayError.value = it.message ?: "Tải thất bại"; _dayExpenses.value = emptyList() }
+            _dayLoading.value = false
+        }
+    }
+
+    fun clearDay() {
+        _dayExpenses.value = emptyList()
+        _dayError.value = null
     }
 
     fun analyzeBasic() {

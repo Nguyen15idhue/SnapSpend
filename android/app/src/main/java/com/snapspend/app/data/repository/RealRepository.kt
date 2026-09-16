@@ -33,25 +33,24 @@ class RealRepository(private val context: Context, private val db: AppDatabase, 
 
     override suspend fun refreshExpenses(pageSize: Int): Int = loadPage(1, pageSize)
 
-    override suspend fun loadPage(page: Int, pageSize: Int): Int {
+    override suspend fun loadPage(
+        page: Int,
+        pageSize: Int,
+        search: String?,
+        category: String?,
+        from: String?,
+        to: String?,
+        sort: String?
+    ): Int {
         val pg = maxOf(1, page)
-        val paged = net { api.expenses(pg, pageSize) }
+        val paged = net { api.expenses(pg, pageSize, search?.takeIf { it.isNotBlank() }, category, from, to, sort) }
         db.expenseDao().replaceAll(paged.items.map { it.toEntity() })
         return paged.total
     }
 
-    override suspend fun refreshAllExpenses(pageSize: Int): Int {
-        // Tải tuần tự từng trang rồi thay cache một lần (giới hạn 20 trang để tránh treo).
-        val all = mutableListOf<ExpenseDto>()
-        var total = 0
-        for (pg in 1..20) {
-            val paged = net { api.expenses(pg, pageSize) }
-            total = paged.total
-            all += paged.items
-            if (all.size >= total || paged.items.isEmpty()) break
-        }
-        db.expenseDao().replaceAll(all.map { it.toEntity() })
-        return total
+    override suspend fun dayExpenses(date: String): List<ExpenseDto> {
+        val paged = net { api.expenses(1, 100, null, null, date, date, null) }
+        return paged.items
     }
 
     override suspend fun createExpense(uri: Uri?, amount: Long, category: String, note: String?, date: String): ExpenseDto {

@@ -113,7 +113,15 @@ data class ApiMessage(val message: String)
 interface SnapSpendApi {
     @POST("auth/register") suspend fun register(@Body body: RegisterRequest): AuthResponse
     @POST("auth/login") suspend fun login(@Body body: AuthRequest): AuthResponse
-    @GET("expenses") suspend fun expenses(@Query("page") page: Int, @Query("pageSize") pageSize: Int): PagedExpensesDto
+    @GET("expenses") suspend fun expenses(
+        @Query("page") page: Int,
+        @Query("pageSize") pageSize: Int,
+        @Query("search") search: String? = null,
+        @Query("category") category: String? = null,
+        @Query("from") from: String? = null,
+        @Query("to") to: String? = null,
+        @Query("sort") sort: String? = null
+    ): PagedExpensesDto
     @Multipart
     @POST("expenses")
     suspend fun createExpense(

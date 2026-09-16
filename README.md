@@ -44,6 +44,8 @@ Chạy lần đầu, API tự apply migration tạo 5 bảng (`users`, `categori
 
 Emulator truy cập backend host qua `http://10.0.2.2:5080` (xem `BuildConfig.API_BASE_URL`). Đăng ký/đăng nhập tài khoản thật trong app.
 
+Ảnh (`Storage:BaseUrl`, mặc định `http://localhost:5080/uploads` trong `appsettings.json`): khi chạy qua compose, ghi đè bằng `STORAGE_BASE_URL` trong `.env` — emulator dùng `http://10.0.2.2:5080/uploads`, máy thật dùng IP LAN của máy chạy API (ví dụ `http://192.168.1.10:5080/uploads`).
+
 ## Cấu trúc thư mục
 
 ```

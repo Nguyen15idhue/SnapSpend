@@ -59,6 +59,7 @@ fun FormScreen(uri: Uri?, onDone: () -> Unit, onBack: () -> Unit, modifier: Modi
     val catVm: CategoryViewModel = viewModel(factory = LocalVmFactory.current)
     val cats by catVm.categories.collectAsStateWithLifecycle()
     val amount by vm.amount.collectAsStateWithLifecycle()
+    val amountHint by vm.amountHint.collectAsStateWithLifecycle()
     val category by vm.category.collectAsStateWithLifecycle()
     val note by vm.note.collectAsStateWithLifecycle()
     val confidence by vm.confidence.collectAsStateWithLifecycle()
@@ -78,8 +79,14 @@ fun FormScreen(uri: Uri?, onDone: () -> Unit, onBack: () -> Unit, modifier: Modi
             if (text.isNotBlank()) {
                 vm.setOcrText(text)
                 vm.applyOcr(text, ReceiptOcr.summarize(text))
-                // Chỉ tự điền số tiền khi bắt được dòng Tổng (chắc chắn); còn không để trống cho người dùng nhập.
-                ReceiptOcr.extractTotal(text)?.let { vm.prefillAmount(it) }
+                // Tự điền theo mức tin cậy: HIGH điền ngay; MEDIUM điền + nhắc kiểm tra; LOW để trống + nhắc nhập tay.
+                val guess = ReceiptOcr.guessAmount(text)
+                if (guess == null || guess.level == ReceiptOcr.AmountLevel.LOW) {
+                    vm.flagAmountHint("Không đọc được tổng tiền — nhập tay số tiền")
+                } else {
+                    vm.prefillAmount(guess.amount)
+                    if (guess.level == ReceiptOcr.AmountLevel.MEDIUM) vm.flagAmountHint("Tổng các món ≠ số ở dòng Tổng — kiểm tra lại số tiền")
+                }
                 vm.analyzeReceipt()
                 if (vm.extractViaAi(text)) vm.analyzeReceipt()
             }
@@ -110,7 +117,10 @@ fun FormScreen(uri: Uri?, onDone: () -> Unit, onBack: () -> Unit, modifier: Modi
                 Text("Không dùng ảnh — chỉ nhập thông tin.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
             }
             Spacer(Modifier.height(Spacing.s16))
-            OutlinedTextField(amount, vm::onAmount, label = { Text("Số tiền (VNĐ)") }, isError = amount.isNotBlank() && !amountOk, supportingText = { if (amount.isNotBlank() && !amountOk) Text("Số tiền phải lớn hơn 0") }, modifier = Modifier.fillMaxWidth().testTag("field_amount"))
+            OutlinedTextField(amount, vm::onAmount, label = { Text("Số tiền (VNĐ)") }, isError = amount.isNotBlank() && !amountOk, supportingText = { when {
+                amount.isNotBlank() && !amountOk -> Text("Số tiền phải lớn hơn 0")
+                amountHint != null -> Text(amountHint!!, color = MaterialTheme.colorScheme.tertiary)
+            } }, modifier = Modifier.fillMaxWidth().testTag("field_amount"))
             Spacer(Modifier.height(Spacing.s12))
             OutlinedTextField(note, vm::onNote, label = { Text("Ghi chú (VD: cơm tấm sườn)") }, modifier = Modifier.fillMaxWidth().testTag("field_note"))
             Spacer(Modifier.height(Spacing.s12))

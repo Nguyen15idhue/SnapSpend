@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.Security.Claims;
+using System.Text;
 using Microsoft.EntityFrameworkCore;
 using SnapSpend.Api.Data;
 using SnapSpend.Api.Models;
@@ -11,15 +13,43 @@ public static class ExpenseEndpoints
     public static IEndpointRouteBuilder MapExpenses(this IEndpointRouteBuilder app)
     {
         var g = app.MapGroup("/api/expenses").RequireAuthorization();
-        g.MapGet("", async (int? page, int? pageSize, ClaimsPrincipal p, AppDbContext db) => {
+        g.MapGet("", async (int? page, int? pageSize, string? search, string? category, string? from, string? to, string? sort, ClaimsPrincipal p, AppDbContext db) => {
             var uid = UserId(p);
             var pg = Math.Max(1, page ?? 1);
             var ps = Math.Clamp(pageSize ?? 20, 1, 100);
-            var query = db.Expenses.Where(x => x.UserId == uid).OrderByDescending(x => x.ExpenseDate).ThenByDescending(x => x.Id);
-            var total = await query.CountAsync();
-            var rows = await query.Skip((pg - 1) * ps).Take(ps)
-                .Select(x => new { x.Id, x.Amount, x.Category, x.ImageUrl, x.Note, x.ExpenseDate, x.AiConfidence }).ToListAsync();
-            var items = rows.Select(x => new ExpenseDto(x.Id, x.Amount, x.Category, x.ImageUrl, x.Note, x.ExpenseDate.ToString("yyyy-MM-dd"), x.AiConfidence)).ToList();
+            // Lọc category theo danh mục chuẩn (giữ tương thích: tham số vắng thì không lọc).
+            if (!string.IsNullOrWhiteSpace(category) && !CategoryCatalog.Keys.Contains(category))
+                return Results.BadRequest(new { message = "Invalid category." });
+            // Lọc ngày optional (yyyy-MM-dd), sai định dạng hoặc from > to thì 400.
+            DateOnly? f = null, t = null;
+            if (!string.IsNullOrWhiteSpace(from) || !string.IsNullOrWhiteSpace(to)) {
+                if (!string.IsNullOrWhiteSpace(from) && !TryParseDate(from, out var ff))
+                    return Results.BadRequest(new { message = "Invalid date. Use yyyy-MM-dd." });
+                if (!string.IsNullOrWhiteSpace(to) && !TryParseDate(to, out var tt))
+                    return Results.BadRequest(new { message = "Invalid date. Use yyyy-MM-dd." });
+                if (!string.IsNullOrWhiteSpace(from)) f = DateOnly.ParseExact(from, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+                if (!string.IsNullOrWhiteSpace(to)) t = DateOnly.ParseExact(to, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+                if (f.HasValue && t.HasValue && f > t)
+                    return Results.BadRequest(new { message = "from must be on or before to." });
+            }
+            var baseQuery = db.Expenses.Where(x => x.UserId == uid);
+            if (!string.IsNullOrWhiteSpace(category)) baseQuery = baseQuery.Where(x => x.Category == category);
+            if (f.HasValue) baseQuery = baseQuery.Where(x => x.ExpenseDate >= f.Value);
+            if (t.HasValue) baseQuery = baseQuery.Where(x => x.ExpenseDate <= t.Value);
+            // Tải theo user/category/ngày trước, rồi lọc search bỏ dấu trong bộ nhớ
+            // (chạy được cả Postgres thật lẫn InMemory test, khớp cả "phở" lẫn "pho").
+            var rows = await baseQuery.ToListAsync();
+            if (!string.IsNullOrWhiteSpace(search)) {
+                var needle = RemoveDiacritics(search.Trim());
+                rows = rows.Where(x => RemoveDiacritics(x.Note ?? "").Contains(needle, StringComparison.Ordinal)).ToList();
+            }
+            var asc = string.Equals(sort, "oldest", StringComparison.OrdinalIgnoreCase);
+            rows = (asc
+                ? rows.OrderBy(x => x.ExpenseDate).ThenBy(x => x.Id)
+                : rows.OrderByDescending(x => x.ExpenseDate).ThenByDescending(x => x.Id)).ToList();
+            var total = rows.Count;
+            var page_rows = rows.Skip((pg - 1) * ps).Take(ps).ToList();
+            var items = page_rows.Select(x => new ExpenseDto(x.Id, x.Amount, x.Category, x.ImageUrl, x.Note, x.ExpenseDate.ToString("yyyy-MM-dd"), x.AiConfidence)).ToList();
             return Results.Ok(new PagedExpensesDto(items, total, pg, ps));
         });
         // Xóa hàng loạt (bulk action đầu tiên): chỉ xóa bản ghi của chính user + dọn ảnh.
@@ -104,6 +134,22 @@ public static class ExpenseEndpoints
     }
 
     private static long UserId(ClaimsPrincipal p) => long.Parse(p.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+    /// <summary>Parse chặt theo yyyy-MM-dd, không phụ thuộc culture của máy.</summary>
+    private static bool TryParseDate(string value, out DateOnly date) =>
+        DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out date);
+
+    /// <summary>Bỏ dấu tiếng Việt + thường hóa để tìm kiếm khớp cả "phở" lẫn "pho".</summary>
+    private static string RemoveDiacritics(string value)
+    {
+        var normalized = value.ToLowerInvariant().Normalize(NormalizationForm.FormD);
+        var sb = new StringBuilder(normalized.Length);
+        foreach (var c in normalized) {
+            if (CharUnicodeInfo.GetUnicodeCategory(c) == UnicodeCategory.NonSpacingMark) continue;
+            sb.Append(c == 'đ' ? 'd' : c);
+        }
+        return sb.ToString().Normalize(NormalizationForm.FormC);
+    }
     public record ExpenseUpsert(long Amount, string Category, string? Note, DateOnly ExpenseDate);
     public record BulkDeleteRequest(List<long> Ids);
     public record PagedExpensesDto(List<ExpenseDto> Items, int Total, int Page, int PageSize);
