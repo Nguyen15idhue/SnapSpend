@@ -102,7 +102,14 @@ fun createApi(tokenStore: TokenStore): SnapSpendApi {
         response
     }
     val logging = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC }
-    val client = OkHttpClient.Builder().addInterceptor(auth).addInterceptor(logging).build()
+    // AI phân tích có thể mất 15-30s (model free chậm) nên nới timeout đọc/ghi.
+    val client = OkHttpClient.Builder()
+        .addInterceptor(auth)
+        .addInterceptor(logging)
+        .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+        .readTimeout(90, java.util.concurrent.TimeUnit.SECONDS)
+        .writeTimeout(90, java.util.concurrent.TimeUnit.SECONDS)
+        .build()
     return Retrofit.Builder()
         .baseUrl(BuildConfig.API_BASE_URL)
         .client(client)

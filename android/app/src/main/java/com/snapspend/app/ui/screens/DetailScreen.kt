@@ -1,12 +1,14 @@
 package com.snapspend.app.ui.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -109,11 +111,12 @@ fun DetailScreen(id: Long, onBack: () -> Unit, onChanged: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(Spacing.s12)
         ) {
             if (e.imageUrl != null) {
+                // Hiện đủ ảnh dọc (Fit) thay vì Crop cắt mất nửa trên/dưới.
                 AsyncImage(
                     model = e.imageUrl,
                     contentDescription = null,
-                    modifier = Modifier.fillMaxWidth().height(260.dp).clip(RoundedCornerShape(18.dp)),
-                    contentScale = ContentScale.Crop
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp).clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentScale = ContentScale.Fit
                 )
             } else {
                 SectionCard("Ảnh") { Text("🧾  Chưa có ảnh — placeholder theo danh mục.", color = MaterialTheme.colorScheme.onSurfaceVariant) }

@@ -1,10 +1,14 @@
 package com.snapspend.app.data.repository
 
 import android.net.Uri
-import com.snapspend.app.data.remote.AnalysisDto
+import com.snapspend.app.data.remote.AiAnalysisDto
 import com.snapspend.app.data.remote.AuthResponse
+import com.snapspend.app.data.remote.BasicAnalysisDto
 import com.snapspend.app.data.remote.CategoryDto
 import com.snapspend.app.data.remote.ClassificationDto
+import com.snapspend.app.data.remote.ExtractReceiptRequest
+import com.snapspend.app.data.remote.ItemCategoryDto
+import com.snapspend.app.data.remote.ReceiptExtractDto
 import com.snapspend.app.data.remote.ExpenseDto
 import com.snapspend.app.data.remote.FriendDto
 import com.snapspend.app.data.remote.SharedExpenseDto
@@ -21,7 +25,14 @@ interface SnapSpendRepository {
     suspend fun login(email: String, password: String): AuthResponse
     suspend fun register(email: String, username: String, password: String): AuthResponse
 
-    suspend fun refreshExpenses()
+    /** Tải trang đầu (thay toàn bộ cache), trả về tổng số bản ghi server. */
+    suspend fun refreshExpenses(pageSize: Int = 10): Int
+
+    /** Nhảy tới trang N (thay toàn bộ cache bằng trang đó), trả về tổng số bản ghi. */
+    suspend fun loadPage(page: Int, pageSize: Int = 10): Int
+
+    /** Tải TẤT CẢ các trang (nối lại, thay cache) — dùng khi tìm kiếm/lọc để lọc đúng toàn bộ. */
+    suspend fun refreshAllExpenses(pageSize: Int = 50): Int
 
     suspend fun createExpense(uri: Uri?, amount: Long, category: String, note: String?, date: String): ExpenseDto
 
@@ -29,11 +40,15 @@ interface SnapSpendRepository {
 
     suspend fun deleteExpense(id: Long)
 
+    /** Xóa hàng loạt (bulk action), trả về số bản ghi đã xóa. */
+    suspend fun deleteExpenses(ids: List<Long>): Int
+
     /** Khôi phục bản ghi đã xóa (Undo), giữ nguyên amount/category/note/date/ảnh/aiConfidence. */
     suspend fun restoreExpense(expense: ExpenseDto): ExpenseDto
 
     suspend fun stats(from: String, to: String): StatsDto
-    suspend fun analyze(from: String, to: String): AnalysisDto
+    suspend fun analyzeBasic(from: String, to: String): BasicAnalysisDto
+    suspend fun analyzeFull(from: String, to: String): AiAnalysisDto
 
     suspend fun friends(): List<FriendDto>
     suspend fun addFriend(username: String): FriendDto
@@ -47,6 +62,12 @@ interface SnapSpendRepository {
 
     /** Phân loại ảnh + ghi chú thành category (dùng trước khi lưu). */
     suspend fun classify(uri: Uri?, note: String?): ClassificationDto
+
+    /** Phân loại từng món (hóa đơn nhiều loại) thành category. */
+    suspend fun classifyItems(names: List<String>): List<ItemCategoryDto>
+
+    /** Tách text OCR thành {merchant, items, total} bằng mini model (null khi lỗi). */
+    suspend fun extractReceipt(text: String): ReceiptExtractDto?
 
     suspend fun deleteAccount()
 }

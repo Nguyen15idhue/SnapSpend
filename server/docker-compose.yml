@@ -17,6 +17,15 @@
       timeout: 5s
       retries: 10
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: snapspend-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
   api:
     build:
       context: ./src/SnapSpend.Api
@@ -35,6 +44,8 @@
       Ai__ApiKey: ${GEMINI_API_KEY:-}
       Ai__Model: ${AI_MODEL:-gemini-3.8-flash}
       Ai__BaseUrl: ${AI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta}
+      Ollama__BaseUrl: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      Ollama__Model: ${OLLAMA_MODEL:-qwen2.5:0.5b}
       Storage__BaseUrl: ${STORAGE_BASE_URL:-http://localhost:5080/uploads}
     ports:
       - "5080:5080"
@@ -43,3 +54,4 @@
 
 volumes:
   postgres_data:
+  ollama_data:

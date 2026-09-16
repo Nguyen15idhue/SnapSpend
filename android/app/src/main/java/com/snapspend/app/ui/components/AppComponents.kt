@@ -2,6 +2,7 @@ package com.snapspend.app.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,7 +11,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -24,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -98,14 +102,21 @@ fun ErrorRetry(message: String, onRetry: () -> Unit) {
     }
 }
 
-/** Cột bar có bo góc + nhãn ngày, màu primary. */
+/** Cột bar có bo góc + nhãn ngày, màu primary. Bấm vào cột để lọc theo ngày. */
 @Composable
-fun BarChartV2(data: Map<String, Long>, modifier: Modifier = Modifier) {
+fun BarChartV2(data: Map<String, Long>, modifier: Modifier = Modifier, onBarClick: (String) -> Unit = {}) {
     val values = data.toList().sortedBy { it.first }.takeLast(14)
     val max = (values.maxOfOrNull { it.second } ?: 1L).toFloat()
     val primary = MaterialTheme.colorScheme.primary
     Column(modifier) {
-        Canvas(Modifier.fillMaxWidth().height(160.dp)) {
+        Canvas(Modifier.fillMaxWidth().height(160.dp).pointerInput(values) {
+            detectTapGestures { offset ->
+                if (values.isEmpty()) return@detectTapGestures
+                val barW = size.width / values.size
+                val i = (offset.x / barW).toInt().coerceIn(values.indices)
+                onBarClick(values[i].first)
+            }
+        }) {
             if (values.isEmpty()) return@Canvas
             val barW = size.width / values.size
             values.forEachIndexed { i, (_, value) ->
@@ -190,6 +201,44 @@ fun BulletList(items: List<String>) {
             Row(Modifier.padding(vertical = 2.dp)) {
                 Text("•  ")
                 Text(x, Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+/** Biểu đồ tròn/donut cơ cấu chi tiêu theo danh mục. */
+@Composable
+fun DonutChart(shares: List<com.snapspend.app.data.remote.CategoryShareDto>, modifier: Modifier = Modifier) {
+    if (shares.isEmpty()) {
+        Text("Chưa có số liệu", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        return
+    }
+    val palette = listOf(
+        androidx.compose.ui.graphics.Color(0xFF16A34A),
+        androidx.compose.ui.graphics.Color(0xFF2563EB),
+        androidx.compose.ui.graphics.Color(0xFFF59E0B),
+        androidx.compose.ui.graphics.Color(0xFFEF4444),
+        androidx.compose.ui.graphics.Color(0xFF8B5CF6),
+        androidx.compose.ui.graphics.Color(0xFF06B6D4),
+        androidx.compose.ui.graphics.Color(0xFFEC4899)
+    )
+    val total = shares.sumOf { it.amount }.coerceAtLeast(1L)
+    androidx.compose.foundation.Canvas(modifier.size(180.dp)) {
+        var start = -90f
+        shares.forEachIndexed { i, s ->
+            val sweep = (s.amount.toFloat() / total) * 360f
+            drawArc(palette[i % palette.size], start, sweep, useCenter = false,
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 44f, cap = androidx.compose.ui.graphics.StrokeCap.Butt))
+            start += sweep
+        }
+    }
+    Spacer(Modifier.height(Spacing.s8))
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.s4)) {
+        shares.take(5).forEachIndexed { i, s ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(12.dp).background(palette[i % palette.size], androidx.compose.foundation.shape.CircleShape))
+                Spacer(Modifier.width(Spacing.s8))
+                Text("${s.name}: ${com.snapspend.app.ui.format.formatVnd(s.amount)} (${s.share}%)", style = MaterialTheme.typography.labelSmall)
             }
         }
     }

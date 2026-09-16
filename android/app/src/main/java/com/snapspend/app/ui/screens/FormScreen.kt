@@ -1,6 +1,7 @@
 package com.snapspend.app.ui.screens
 
 import android.net.Uri
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -43,6 +45,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import com.snapspend.app.data.ocr.ReceiptOcr
 import com.snapspend.app.ui.components.ConfidenceBadge
+import com.snapspend.app.ui.format.formatVnd
 import com.snapspend.app.ui.theme.Spacing
 import com.snapspend.app.ui.viewmodel.CategoryViewModel
 import com.snapspend.app.ui.viewmodel.ExpenseFormViewModel
@@ -60,19 +63,25 @@ fun FormScreen(uri: Uri?, onDone: () -> Unit, onBack: () -> Unit, modifier: Modi
     val note by vm.note.collectAsStateWithLifecycle()
     val confidence by vm.confidence.collectAsStateWithLifecycle()
     val candidates by vm.candidates.collectAsStateWithLifecycle()
+    val items by vm.items.collectAsStateWithLifecycle()
+    val itemCats by vm.itemCats.collectAsStateWithLifecycle()
     val classifying by vm.classifying.collectAsStateWithLifecycle()
     val loading by vm.loading.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
     val amountOk = (amount.toLongOrNull() ?: 0L) > 0
     val context = LocalContext.current
 
-    // Có ảnh -> OCR hóa đơn thành text (offline), điền ghi chú + số tiền.
+    // Có ảnh -> OCR (text thô) -> hiện ngay bằng luật nội bộ (nhanh) -> AI làm sạch ở nền (ghi đè nếu hợp lệ).
     LaunchedEffect(uri) {
         if (uri != null) {
             val text = ReceiptOcr.readText(context, uri)
             if (text.isNotBlank()) {
+                vm.setOcrText(text)
                 vm.applyOcr(text, ReceiptOcr.summarize(text))
-                ReceiptOcr.extractAmount(text)?.let { vm.prefillAmount(it) }
+                // Chỉ tự điền số tiền khi bắt được dòng Tổng (chắc chắn); còn không để trống cho người dùng nhập.
+                ReceiptOcr.extractTotal(text)?.let { vm.prefillAmount(it) }
+                vm.analyzeReceipt()
+                if (vm.extractViaAi(text)) vm.analyzeReceipt()
             }
         }
     }
@@ -95,7 +104,8 @@ fun FormScreen(uri: Uri?, onDone: () -> Unit, onBack: () -> Unit, modifier: Modi
     ) { padding ->
         Column(modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(Spacing.s16)) {
             if (uri != null) {
-                AsyncImage(model = uri, contentDescription = null, modifier = Modifier.fillMaxWidth().height(260.dp).clip(RoundedCornerShape(18.dp)), contentScale = ContentScale.Crop)
+                // Hiện đủ ảnh dọc (Fit) thay vì Crop cắt mất nửa trên/dưới.
+                AsyncImage(model = uri, contentDescription = null, modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp).clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surfaceVariant), contentScale = ContentScale.Fit)
             } else {
                 Text("Không dùng ảnh — chỉ nhập thông tin.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
             }
@@ -122,6 +132,21 @@ fun FormScreen(uri: Uri?, onDone: () -> Unit, onBack: () -> Unit, modifier: Modi
             if (candidates.size > 1) {
                 val names = candidates.map { key -> cats.find { it.key == key }?.name ?: key }
                 Text("Hóa đơn có thể gồm: " + names.joinToString(", ") + ". Chọn danh mục chính bên dưới.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
+                Spacer(Modifier.height(Spacing.s8))
+            }
+            if (items.isNotEmpty()) {
+                Text("Các món phát hiện:", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelSmall)
+                Spacer(Modifier.height(Spacing.s4))
+                items.forEach { item ->
+                    val cname = itemCats[item.name]?.let { key -> cats.find { it.key == key }?.name ?: key }
+                    Text("• ${item.name} — ${formatVnd(item.amount)}" + (cname?.let { " → $it" } ?: ""), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                if (items.size > 1) {
+                    Spacer(Modifier.height(Spacing.s8))
+                    OutlinedButton(onClick = { vm.splitExpenses(onDone) }, enabled = !loading, modifier = Modifier.fillMaxWidth().testTag("btn_split")) {
+                        Text("Tách thành ${items.size} khoản")
+                    }
+                }
                 Spacer(Modifier.height(Spacing.s8))
             }
             FlowRow(Modifier.fillMaxWidth().padding(vertical = Spacing.s4), horizontalArrangement = Arrangement.spacedBy(Spacing.s8), verticalArrangement = Arrangement.spacedBy(Spacing.s8)) {

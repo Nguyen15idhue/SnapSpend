@@ -11,8 +11,13 @@ var connection = builder.Configuration.GetConnectionString("Default")!;
 builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connection).UseSnakeCaseNamingConvention());
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<StorageService>();
+builder.Services.AddScoped<OllamaService>();
+builder.Services.AddScoped<OpenRouterService>();
 builder.Services.AddScoped<AiService>();
+builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient("ai", client => client.Timeout = TimeSpan.FromSeconds(8));
+builder.Services.AddHttpClient("ollama", client => client.Timeout = TimeSpan.FromSeconds(25));
+builder.Services.AddHttpClient("openrouter", client => client.Timeout = TimeSpan.FromSeconds(30));
 var jwt = builder.Configuration.GetSection("Jwt");
 var jwtKey = jwt["Key"];
 if (string.IsNullOrWhiteSpace(jwtKey) || jwtKey.Length < 32 || jwtKey.Contains("CHANGE_ME", StringComparison.OrdinalIgnoreCase))
@@ -42,6 +47,7 @@ app.MapStats();
 app.MapFriends();
 app.MapAccount();
 app.MapCategories();
+app.MapAi();
 
 using (var scope = app.Services.CreateScope()) {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();

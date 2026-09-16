@@ -1,6 +1,6 @@
 # SnapSpend
 
-App Android ghi chi tiêu bằng ảnh: chụp hóa đơn → AI gợi ý category → lưu album → thống kê → AI phân tích hành vi. Có backend riêng (ASP.NET Core + PostgreSQL).
+App Android ghi chi tiêu bằng ảnh: chụp/chọn hóa đơn → **OCR offline (ML Kit)** đọc thành text → **AI gợi ý danh mục** (sửa tay được, tách nhiều khoản) → lưu album → thống kê → AI phân tích hành vi. Có backend riêng (ASP.NET Core + PostgreSQL + mini model Ollama).
 
 App **luôn dùng backend thật** — cần chạy server trước khi dùng.
 
@@ -9,7 +9,8 @@ App **luôn dùng backend thật** — cần chạy server trước khi dùng.
 - UI Android **chỉ gọi** interface `SnapSpendRepository` (`data/repository/`), không gọi thẳng Retrofit/Room từ composable.
   - `RealRepository` — backend thật (Retrofit + Room cache).
 - `server/`: ASP.NET Core 10 + EF Core 10 + PostgreSQL 17 + JWT. Migration là nguồn schema duy nhất (xem `Migrations/`).
-- `docs/1/`: tài liệu giai đoạn MVP cũ. `docs/2/`: phân tích hiện trạng + kế hoạch + kết quả đang làm.
+  - AI: engine nội bộ (phân loại text, heuristic bỏ dấu) + optional Gemini/key và **Ollama local** cho trích xuất/phân tích.
+- `docs/1/`: tài liệu giai đoạn MVP cũ. `docs/2/`: phân tích hiện trạng + kế hoạch + kết quả đang làm (kể cả `RECEIPT_AI_*`).
 
 ## Yêu cầu môi trường
 
@@ -24,12 +25,13 @@ App **luôn dùng backend thật** — cần chạy server trước khi dùng.
 ## Chạy local (3 lệnh)
 
 ```powershell
-# 1) Postgres (chạy trong server/)
+# 1) Postgres + Ollama (chạy trong server/)
 cd server
-docker compose up -d postgres
+docker compose up -d postgres ollama
+docker exec snapspend-ollama ollama pull qwen2.5:0.5b   # mini model, ~397MB (1 lần)
 
 # 2) API (chạy trong server/src/SnapSpend.Api/)
-# Bắt buộc: Jwt__Key dài >= 32 ký tự. GEMINI_API_KEY để trống vẫn chạy (AI dùng fallback).
+# Bắt buộc: Jwt__Key dài >= 32 ký tự. Thiếu GEMINI_API_KEY vẫn chạy (dùng engine nội bộ + Ollama).
 $env:Jwt__Key = "dev-local-secret-key-for-snapspend-1234567890"
 dotnet run
 # API lên tại http://localhost:5080, kiểm tra: GET /health -> 200
@@ -51,22 +53,22 @@ SnapSpend/
 ├── android/
 │   ├── app/build.gradle.kts
 │   └── app/src/main/java/com/snapspend/app/
-│       ├── MainActivity.kt
-│       ├── data/{AppConfig,local,mock,remote,repository}/
+│   ├── MainActivity.kt
+│       ├── data/{local,ocr,remote,repository}/
 │       ├── model/Models.kt
-│       └── ui/{components,format,screens,theme}/
+│       └── ui/{components,format,screens,theme,viewmodel}/
 ├── server/
-│   ├── docker-compose.yml        # service postgres (+ api khi deploy)
-│   ├── .env.example              # mẫu JWT_KEY, GEMINI_API_KEY, AI_MODEL...
+│   ├── docker-compose.yml        # postgres + ollama (+ api khi deploy)
+│   ├── .env.example              # mẫu JWT_KEY, GEMINI_API_KEY, AI_MODEL, OLLAMA_*...
 │   ├── db/schema.sql             # tham khảo, KHÔNG dùng init DB
 │   └── src/SnapSpend.Api/
 │       ├── Program.cs
 │       ├── Data/{AppDbContext,DesignTimeDbFactory}.cs
 │       ├── Migrations/
-│       ├── Endpoints/
-│       ├── Services/{AuthService,AiService,StorageService}.cs
-│       └── Models/Entities.cs
-└── docs/{1,2}/
+│       ├── Endpoints/            # Auth, Expenses (+restore), Categories, Stats (+ai/*), Friends, Account, Ai
+│       ├── Services/{AuthService,AiService,OllamaService,StorageService}.cs
+│       └── Models/{Entities,CategoryCatalog}.cs
+└── docs/{1,2,3}/
 ```
 
 ## Smoke test nhanh backend

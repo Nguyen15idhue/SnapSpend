@@ -14,7 +14,6 @@
 
 | Bước bỏ | Lý do |
 |---------|-------|
-| 3.3 — Phân trang danh sách | Quy mô demo nhỏ, chưa cần |
 | 3.5 — Camera nâng cấp (đổi cam/flash) | Không thiết yếu cho luồng chính; emulator khó kiểm chứng |
 | 4.4 — CI GitHub Actions | Không push repo, không cần pipeline |
 | 5.1–5.10 — Toàn bộ GĐ5 Production hardening | Rate limit, HTTPS/CORS, refresh token, object storage, Swagger, logging, backup, moderation, deploy, soft-delete — vượt yêu cầu môn học |
@@ -22,7 +21,10 @@
 | 6.3 — Accessibility (TalkBack) | Polish nâng cao, không bắt buộc |
 | 6.5 — Hoàn thiện tài liệu (API.md, CONTRIBUTING) | Đã có README + docs/2; không cần thêm |
 
-**Giữ lại:** GĐ1 (1.1–1.4), GĐ2 (2.1–2.8), GĐ3 (3.1, 3.2, 3.4, 3.6), GĐ4 (4.1–4.3), GĐ6 (6.1, 6.4).
+**Giữ lại:** GĐ1 (1.1–1.4), GĐ2 (2.1–2.8), GĐ3 (3.1, 3.2, 3.3, 3.4, 3.6), GĐ4 (4.1–4.3), GĐ6 (6.1, 6.4).
+
+> **Cập nhật 2026-09-16:** đưa **3.3 (phân trang) trở lại phạm vi** theo yêu cầu người dùng, kèm tính năng mới
+> **3.7 — Bulk action ở Album** (action đầu tiên: xóa hàng loạt) và **3.8 — sửa ảnh dọc + cải thiện phân loại**.
 
 > **Cập nhật 2026-09-15 (lần 2):** App **bỏ hẳn Demo/Mock, chỉ dùng Real** (theo yêu cầu người dùng).
 > Do đó **Bước 2.4 (persist công tắc Demo/Real) trở nên không còn áp dụng** (đã gỡ `AppConfig.isDemo`,
@@ -309,19 +311,30 @@
 
 ---
 
-### Bước 3.3 — Phân trang danh sách ⛔ NGOÀI PHẠM VI
+### Bước 3.3 — Phân trang danh sách ✅ ĐẠT (2026-09-16)
 **Mã liên quan:** SRV-07
 **Nội dung:**
-1. `GET /expenses?page=&size=` (hoặc cursor) trả kèm tổng.
-2. Android load thêm khi cuộn; Room vẫn cache.
+1. `GET /expenses?page=&pageSize=` (mặc định 1/20, tối đa 100) trả `{items, total, page, pageSize}`.
+2. Android chuyển trang thật: thanh cố định dưới list gồm Trước/Sau + số trang (tối đa 5 số) + "Trang X/Y • Tổng N";
+   nhảy trang thay cache bằng `loadPage`; khi tìm kiếm/lọc thì tải toàn bộ (`refreshAllExpenses`) để lọc đúng.
 
 **Yêu cầu cần đạt:**
 - 1000+ expense không tải một lần; UX cuộn mượt.
 
 **Checklist test:**
-- [ ] Seed nhiều expense → API trả đúng trang.
-- [ ] App cuộn tới cuối tải thêm, không trùng/không sót.
-- [ ] Trang rỗng/ngoài phạm vi trả đúng.
+- [x] API `?page=1&pageSize=3` trả đúng `total`, `items`; trang vượt tổng trả `items=[]`.
+- [x] Appium `verify_paging.py`: sang trang 2 thấy khoản cũ nhất, về trang 1 (2/2 pass).
+- [x] Xóa hết trang cuối tự lùi về trang trước (logic `deleteSelected`).
+
+### Bước 3.7 — Bulk action ở Album (mới, theo yêu cầu 2026-09-16) ✅ ĐẠT
+**Nội dung:**
+1. Backend `POST /api/expenses/bulk-delete {ids}` — chỉ xóa bản ghi của chính user + dọn file ảnh, trả `{deleted}`.
+2. Android: nhấn giữ card hoặc nút "Chọn" để vào chế độ chọn (checkbox, đếm "Đã chọn n", Chọn tất cả, Hủy); action đầu tiên là **Xóa** (hộp xác nhận, không hoàn tác).
+
+**Checklist test:**
+- [x] API bulk-delete 2 khoản tạm → `deleted=2`.
+- [x] Appium: vào chế độ chọn (nút + nhấn giữ), hủy về trạng thái thường.
+- [x] E2E xóa 1 khoản tạm trên app → DB về 10/4036268, dữ liệu thật nguyên vẹn.
 
 **Ghi chú:** Cân nhắc giữ tương thích khi không truyền `page` (trả mặc định).
 

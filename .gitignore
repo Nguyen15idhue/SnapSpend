@@ -12,3 +12,11 @@ server/src/SnapSpend.Api/wwwroot/uploads/*
 !server/src/SnapSpend.Api/wwwroot/uploads/.gitkeep
 .idea/
 .DS_Store
+.vscode/
+
+# Artifacts chay test UI (splash/screenshots/dump/cache) - khong commit
+__pycache__/
+android/ui-test/__pycache__/
+android/ui-test/*.png
+android/ui-test/ui_p.xml
+android/ui-test/fail_*.png

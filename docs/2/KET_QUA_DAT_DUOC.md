@@ -10,9 +10,11 @@
 ## Trạng thái xuất phát (trước khi thực hiện kế hoạch này)
 
 > **Điều chỉnh phạm vi (2026-09-15):** Dự án là bài tập lớn, không cần production hardening.
-> Rút gọn còn **GĐ1–GĐ4 + 6.1, 6.4** (21 bước). **Bỏ:** 3.3 (phân trang), 3.5 (camera nâng cấp),
+> Rút gọn còn **GĐ1–GĐ4 + 6.1, 6.4** (21 bước). **Bỏ:** 3.5 (camera nâng cấp),
 > 4.4 (CI GitHub Actions — không push repo), toàn bộ GĐ5 (5.1–5.10), và 6.2/6.3/6.5.
 > Các bước bỏ được ghi rõ trong bảng tổng hợp với trạng thái "ngoài phạm vi".
+>
+> > **Cập nhật 2026-09-16:** 3.3 (phân trang) làm theo yêu cầu + thêm 3.7 (bulk action Album).
 
 > **Điều chỉnh kiến trúc (2026-09-15, lần 2):** Theo yêu cầu người dùng, **bỏ hẳn Demo/Mock — app chỉ dùng Real**.
 > Đã xóa `MockRepository`, `MockData`, `AppConfig.isDemo`, `LocalIsDemo`, công tắc Demo ở Profile; `MainActivity` luôn dựng
@@ -224,8 +226,33 @@ Ngày bắt đầu kế hoạch: 2026-09-14.
 - Kết quả đã đạt: B thấy khoản được chia sẻ; không sửa/xóa được.
 - Ghi chú: Màn Profile tự tải lại danh sách mỗi lần mở tab. E2E FE (Appium) phần hiển thị chưa chạy trọn (thao tác tay); đã kiểm chứng server + UI có mục.
 
-### Bước 3.3 — Phân trang danh sách ⛔ NGOÀI PHẠM VI
-- Trạng thái: ⛔ Ngoài phạm vi (quy mô demo nhỏ, chưa cần)
+### Bước 3.3 — Phân trang danh sách ✅ ĐẠT (2026-09-16)
+- File đã tạo/sửa:
+  - `server/.../Endpoints/ExpenseEndpoints.cs` — `GET /expenses?page=&pageSize=` trả `PagedExpensesDto(items, total, page, pageSize)`.
+  - `android/.../data/remote/Api.kt` — `expenses(page, pageSize): PagedExpensesDto`.
+  - `android/.../data/repository/{SnapSpendRepository,RealRepository}.kt` — `refreshExpenses(pageSize)`, `loadPage(page, pageSize)` (thay cache),
+    `refreshAllExpenses()` (tải hết khi tìm/lọc).
+  - `android/.../ui/viewmodel/AlbumViewModel.kt` — `PAGE_SIZE=10`, `page/totalCount/totalPages()`, `goToPage/nextPage/prevPage`, tự lùi trang sau xóa.
+  - `android/.../ui/screens/AlbumScreen.kt` — thanh `PageBar` cố định dưới list (Trước/Sau + số trang + "Trang X/Y"), header "Trang X/Y • Tổng N".
+  - `android/ui-test/verify_paging.py` — kiểm chứng Appium.
+- Kết quả test: API đúng trang/tổng; Appium sang trang 2 + về trang 1 (2/2); E2E 14 khoản hiện "Trang 1/2 • 14".
+
+### Bước 3.7 — Bulk action ở Album ✅ ĐẠT (2026-09-16, tính năng mới theo yêu cầu)
+- File đã tạo/sửa:
+  - `server/.../Endpoints/ExpenseEndpoints.cs` — `POST /api/expenses/bulk-delete {ids}` (lọc UserId, dọn ảnh, trả `{deleted}`).
+  - `android/.../data/remote/Api.kt` — `BulkDeleteRequest/Response`, `bulkDelete()`.
+  - `android/.../data/repository/` — `deleteExpenses(ids): Int`.
+  - `android/.../ui/viewmodel/AlbumViewModel.kt` — `selectionMode/selectedIds`, `enterSelection/startSelection/toggleSelect/selectAll/deleteSelected`.
+  - `android/.../ui/screens/AlbumScreen.kt` — thanh bulk (Đã chọn n, Chọn tất cả, Xóa, Hủy), checkbox từng card, hộp xác nhận, snackbar "Đã xóa n khoản chi".
+  - `android/ui-test/verify_bulk_ui.py`, `verify_bulk_delete.py` — kiểm chứng Appium.
+- Kết quả test: API `deleted=2`; Appium 4/4 (album, chọn qua nút, chọn qua nhấn giữ); E2E xóa 1 khoản tạm trên app → DB về đúng dữ liệu thật.
+
+### Bước 3.8 — Sửa ảnh dọc + cải thiện phân loại (2026-09-16, theo phản hồi người dùng) ✅ ĐẠT
+- Ảnh dọc: `DetailScreen`/`FormScreen` dùng `Crop` trong khung 260dp nên ảnh dọc bị cắt nửa → đổi `Fit` + `heightIn(max=420.dp)` + nền, hiện đủ ảnh.
+- Phân loại: `AiService.Heuristic` chọn từ khóa khớp **dài nhất** (VD "grabfood" thắng "grab", "cho thue" thắng "cho "); mở rộng ~120 từ khóa VN
+  (Highlands, Circle K, Pharmacity, EVN, Vietjet, vé số, làm đẹp, thay lốp xe…); prompt Gemini ưu tiên tên cửa hàng + đọc ảnh dọc từ trên xuống.
+- File: `server/.../Services/AiService.cs`, `server/tests/.../ClassifyTests.cs` (19 case), `DetailScreen.kt`, `FormScreen.kt`.
+- Kết quả test: `dotnet test` 32/32 (13 API + 19 classify).
 
 ### Bước 3.4 — Xóa ảnh khi xóa expense
 - Trạng thái: ✅ Đạt
@@ -368,14 +395,14 @@ Ngày bắt đầu kế hoạch: 2026-09-14.
 |-----------|---------|---------------|--------|----------|----------|----------------|
 | GĐ1 — Nền tảng | 4 | 4 | 4 | 0 | 0 | 0 |
 | GĐ2 — Kiến trúc Android | 8 | 7 | 7 | 0 | 0 | 1 (2.4 không còn áp dụng) |
-| GĐ3 — Tính năng & backend | 6 | 4 | 4 | 0 | 0 | 2 (3.3, 3.5) |
+| GĐ3 — Tính năng & backend | 8 | 7 | 7 | 0 | 0 | 1 (3.5) |
 | GĐ4 — Kiểm thử & CI | 4 | 3 | 3 | 0 | 0 | 1 (4.4) |
 | GĐ5 — Production hardening | 10 | 0 | 0 | 0 | 0 | 10 (5.1–5.10) |
 | GĐ6 — Polish UI/UX | 5 | 2 | 2 | 0 | 0 | 3 (6.2, 6.3, 6.5) |
-| **Tổng** | **37** | **20** | **20** | **0** | **0** | **16 (+1 n/a)** |
+| **Tổng** | **39** | **23** | **23** | **0** | **0** | **15 (+1 n/a)** |
 
-> **Phạm vi rút gọn (2026-09-15):** làm **20 bước** (GĐ1–GĐ4 + 6.1, 6.4; trừ 2.4 không còn áp dụng);
-> **16 bước ngoài phạm vi** (3.3, 3.5, 4.4, toàn bộ GĐ5, 6.2, 6.3, 6.5) — chi tiết lý do xem đầu `CAC_BUOC_CAN_LAM.md`.
+> **Phạm vi rút gọn (2026-09-15) + bổ sung 2026-09-16:** làm **23 bước** (GĐ1–GĐ4 + 6.1, 6.4 + 3.3, 3.7, 3.8; trừ 2.4 không còn áp dụng);
+> **15 bước ngoài phạm vi** (3.5, 4.4, toàn bộ GĐ5, 6.2, 6.3, 6.5) — chi tiết lý do xem đầu `CAC_BUOC_CAN_LAM.md`.
 
 ## Changelog bổ sung (2026-09-15)
 
@@ -385,13 +412,16 @@ Các thay đổi/sửa lỗi phát sinh trong quá trình test thực tế:
 |----------|----------|
 | Bỏ Demo/Mock, chỉ Real | Xóa `MockRepository`, `MockData`, `AppConfig.isDemo`, `LocalIsDemo`, công tắc Profile; `MainActivity` luôn dựng `RealRepository`. Cập nhật `AGENTS.md` + `README.md`. |
 | Danh mục tiếng Việt | `Shopping → Mua sắm`, `Học tập → Giáo dục`; EF migration `UpdateCategoryNames`. |
-| Phân loại AI | Gemini hết quota free tier (429/503) → **phân loại theo text dùng engine nội bộ** (tức thời); ảnh dùng Gemini khi còn, timeout 8s. Thêm ánh xạ nhãn tiếng Việt/đồng nghĩa. Model mặc định `gemini-3.8-flash`. |
+| Phân loại AI | Gemini hết quota free tier (429/503) → **phân loại theo text dùng engine nội bộ** (tức thời); ảnh dùng Gemini khi còn, timeout 8s. Thêm ánh xạ nhãn tiếng Việt/đồng nghĩa. Siết từ khóa `food` (bỏ `an ` lỏng lẻo → hết nhầm "Trần" thành Ăn uống). Model mặc định `gemini-3.8-flash`. |
 | Phân tích hành vi | Tính từ chính số liệu (tổng, trung bình, nhóm cao nhất, ngày bất thường, gợi ý); hiển thị tên danh mục tiếng Việt. |
 | Endpoint mới | `POST /api/ai/classify` (ảnh + note) để client xem/sửa danh mục trước khi lưu. |
 | Luồng Camera | Bỏ chụp trực tiếp: chọn ảnh / ảnh mẫu / không ảnh → form nhập text → AI tự gợi ý → sửa thủ công → lưu. |
 | **OCR hóa đơn (ML Kit) + chụp ảnh lại** | Thêm lại **chụp ảnh (CameraX)** + **chọn ảnh/thư viện**; **OCR ML Kit** (offline, không quota) đọc hóa đơn thành text → **ghi chú tóm tắt** (bỏ tiêu đề/boilerplate) + **trích số tiền**; engine nội bộ phân loại. Đã test: hóa đơn mì/bún → **Ăn uống** (lưu DB OK). Thêm dependency `com.google.mlkit:text-recognition`. Hạn chế: đôi khi trích số tiền nhầm dòng hàng (sửa tay được). |
 | **Hóa đơn nhiều danh mục (Hướng 1)** | Server `POST /ai/classify` trả thêm `candidates` (mọi danh mục khớp). App hiển thị "Hóa đơn có thể gồm: …" để chọn **danh mục chính**; không đổi schema. Test: `"cơm tấm và grab"` → `[transport, food]`; app hiện gợi ý. |
-| Sửa lỗi | Cảnh báo "số tiền phải lớn hơn 0" sai; double-delete khi swipe; Room cache không xóa bản ghi đã mất (`replaceAll`); Album/Stats không refresh khi mở lại tab; 401 → về Auth; crash `SavedStateProvider`. |
+| **Luồng OCR → AI → hiển thị** | OCR text thô → **mini model tách** nội dung sạch + tổng (ghi đè khi hợp lệ) → luật nội bộ chạy ngay. **Chỉ tự điền số tiền khi bắt được dòng Tổng**; còn không để trống cho người dùng nhập (tránh điền sai mã KH/số HĐ). Loại dòng mã/số hiệu khỏi ứng viên số tiền. Test hóa đơn điện: AI gợi ý **Hóa đơn 99%** đúng, số tiền trống chờ nhập. |
+| **2 tab phân tích + lọc ngày + hỏi mẫu** | Stats có **2 tab (Cơ bản/AI)** thay vì xếp chồng; **tự tải phân tích cơ bản** khi mở tab (hỏi mẫu dùng được ngay); **bấm cột biểu đồ để lọc** chi tiêu theo ngày; **donut chart** + top 5 + top khoản lớn + ngày chi nhiều nhất + cuối tuần/ngày thường + khoản lặp lại; **6 câu hỏi mẫu** trả lời tính sẵn. Test trên app: đủ khối, số liệu đúng. |
+| **Tốc độ AI phân tích** | Lần đầu ~10-17s (model free chậm) → thêm **cache server** (`IMemoryCache`, key theo user+kỳ+phiên bản dữ liệu, TTL 10 phút): lần 2 chỉ **~11ms**. Sửa lỗi EF không dịch `DateTime.Ticks` (dùng `Max(UpdatedAt)`). |
+| Sửa lỗi | Cảnh báo "số tiền phải lớn hơn 0" sai; double-delete khi swipe; Room cache không xóa bản ghi đã mất (`replaceAll`); Album/Stats không refresh khi mở lại tab; 401 → về Auth; crash `SavedStateProvider`; **AI load 10s rồi trắng do OkHttp timeout đọc mặc định 10s trong khi API cần ~17s → nới connect 30s/read-write 90s**; **ảnh không hiện do `Storage:BaseUrl` dùng `localhost` (emulator không gọi được) → đổi `http://10.0.2.2:5080/uploads` + cập nhật dữ liệu cũ**. |
 | Dữ liệu | Đã xóa sạch DB + ảnh upload; seed 10 chi phí chuẩn danh mục cho user `demo@snapspend.vn` / `secret123`. |
 
 ## Backlog ghi khi phát sinh lỗi/kế hoạch mới

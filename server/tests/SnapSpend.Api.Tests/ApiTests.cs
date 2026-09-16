@@ -70,7 +70,8 @@ public class ApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.Equal("food", created.GetProperty("category").GetString());
 
         var list = await client.GetFromJsonAsync<JsonElement>("/api/expenses");
-        Assert.Contains(list.EnumerateArray(), e => e.GetProperty("amount").GetInt64() == 50000);
+        Assert.Equal(1, list.GetProperty("total").GetInt32());
+        Assert.Contains(list.GetProperty("items").EnumerateArray(), e => e.GetProperty("amount").GetInt64() == 50000);
     }
 
     [Fact]
@@ -131,5 +132,39 @@ public class ApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var client = _factory.CreateClient();
         var res = await client.GetAsync("/api/expenses");
         Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
+    }
+
+    [Fact]
+    public async Task Phan_trang_tra_dung_items_va_total()
+    {
+        var (client, _, _) = await RegisterAsync();
+        await CreateExpenseAsync(client, 1000, "food", "p1");
+        await CreateExpenseAsync(client, 2000, "food", "p2");
+        await CreateExpenseAsync(client, 3000, "food", "p3");
+        var paged = await client.GetFromJsonAsync<JsonElement>("/api/expenses?page=1&pageSize=2");
+        Assert.Equal(3, paged.GetProperty("total").GetInt32());
+        Assert.Equal(2, paged.GetProperty("items").GetArrayLength());
+        var empty = await client.GetFromJsonAsync<JsonElement>("/api/expenses?page=5&pageSize=2");
+        Assert.Equal(0, empty.GetProperty("items").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task Bulk_delete_chi_xoa_cua_chinh_user()
+    {
+        var (clientA, _, _) = await RegisterAsync();
+        var (clientB, _, _) = await RegisterAsync();
+        var c1 = await CreateExpenseAsync(clientA, 1000, "food", "xoa1");
+        var c2 = await CreateExpenseAsync(clientA, 2000, "food", "xoa2");
+        var id1 = (await c1.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetInt64();
+        var id2 = (await c2.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetInt64();
+        // User khác xóa ké → không xóa được gì.
+        var hack = await clientB.PostAsJsonAsync("/api/expenses/bulk-delete", new { ids = new[] { id1, id2 } });
+        Assert.Equal(HttpStatusCode.OK, hack.StatusCode);
+        Assert.Equal(0, (await hack.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("deleted").GetInt32());
+        // Chính chủ xóa → hết.
+        var ok = await clientA.PostAsJsonAsync("/api/expenses/bulk-delete", new { ids = new[] { id1, id2 } });
+        Assert.Equal(2, (await ok.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("deleted").GetInt32());
+        var after = await clientA.GetFromJsonAsync<JsonElement>("/api/expenses");
+        Assert.Equal(0, after.GetProperty("total").GetInt32());
     }
 }

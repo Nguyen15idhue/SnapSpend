@@ -11,7 +11,7 @@ public record AnalysisResult(string Summary, List<string> Trends, List<string> A
 /// Không có API key hoặc gọi lỗi thì tự fallback heuristic/analysis mẫu (không chặn luồng).
 /// Cấu hình: Ai:ApiKey, Ai:Model, Ai:BaseUrl.
 /// </summary>
-public class AiService(IConfiguration config, IHttpClientFactory httpClientFactory)
+public class AiService(IConfiguration config, IHttpClientFactory httpClientFactory, OpenRouterService openRouter)
 {
     private static readonly string[] Allowed = ["food", "shopping", "transport", "entertainment", "housing", "health", "education", "bills", "other"];
 
@@ -43,15 +43,15 @@ public class AiService(IConfiguration config, IHttpClientFactory httpClientFacto
         {
             var parts = new List<object>
             {
-                new { text = "Bạn phân loại một ảnh hóa đơn/chi tiêu tiếng Việt. Đọc nội dung và chọn ĐÚNG MỘT key sau:\n"
-                    + "- food: ăn uống, nhà hàng, quán ăn, mì, bún, cơm, cà phê, trà sữa\n"
-                    + "- shopping: mua sắm đồ vật, quần áo, điện máy, quạt, đồ gia dụng, siêu thị\n"
-                    + "- transport: đi lại, xăng, taxi, grab, vé xe, gửi xe\n"
-                    + "- entertainment: giải trí, phim, game, karaoke\n"
-                    + "- housing: tiền nhà, thuê nhà, chung cư\n"
-                    + "- health: sức khỏe, thuốc, khám bệnh, bệnh viện\n"
-                    + "- education: giáo dục, học phí, sách vở, khóa học\n"
-                    + "- bills: hóa đơn điện, nước, internet, điện thoại, phí định kỳ\n"
+                new { text = "Bạn phân loại một ảnh hóa đơn/chi tiêu tiếng Việt (có thể là ảnh chụp màn hình dọc — hãy đọc toàn bộ từ trên xuống). Ưu tiên TÊN CỬA HÀNG/thương hiệu rồi mới đến món lẻ, và chọn ĐÚNG MỘT key sau:\n"
+                    + "- food: ăn uống, nhà hàng, quán ăn, mì, bún, cơm, cà phê, trà sữa, Highlands, Phúc Long, KFC, đồ ăn giao tận nơi (GrabFood/ShopeeFood), đi chợ, tạp hóa, Bách Hóa Xanh, WinMart, Circle K, siêu thị mini\n"
+                    + "- shopping: mua sắm đồ vật, quần áo, điện máy (Điện Máy Xanh, Thế Giới Di Động, FPT Shop), đồ gia dụng, siêu thị lớn, Shopee/Lazada/Tiki, mỹ phẩm, nhà sách\n"
+                    + "- transport: đi lại, xăng, taxi, Grab (GrabBike/GrabCar — không phải GrabFood), vé xe, vé máy bay, hãng bay, gửi xe, sửa xe\n"
+                    + "- entertainment: giải trí, phim/CGV, game, karaoke, du lịch, khách sạn, vé số, làm đẹp/spa\n"
+                    + "- housing: tiền nhà, thuê nhà/trọ, chung cư, phí quản lý, sửa nhà\n"
+                    + "- health: sức khỏe, thuốc, nhà thuốc (Pharmacity/Long Châu), khám bệnh, bệnh viện, xét nghiệm\n"
+                    + "- education: giáo dục, học phí, sách vở, khóa học, luyện thi (IELTS/TOEIC), dụng cụ học tập\n"
+                    + "- bills: hóa đơn điện (EVN), nước sạch, internet (VNPT/Viettel/FPT), cước điện thoại, nạp tiền, ví điện tử, chuyển khoản thanh toán\n"
                     + "- other: không thuộc nhóm nào\n"
                     + "Chỉ trả JSON: {\"category\":\"food\",\"confidence\":0.0}" },
                 new { inline_data = new { mime_type = string.IsNullOrWhiteSpace(mime) ? "image/jpeg" : mime, data = Convert.ToBase64String(image) } }
@@ -71,7 +71,8 @@ public class AiService(IConfiguration config, IHttpClientFactory httpClientFacto
         catch { return Heuristic(note); }
     }
 
-    /// <summary>Chuẩn hóa category model trả về (có thể là key, nhãn tiếng Việt hoặc đồng nghĩa) về key hợp lệ.</summary>
+    /// <summary>Phân loại text thuần bằng engine nội bộ (không cần key/quota).</summary>
+    public static ClassificationResult ClassifyText(string? note) => Heuristic(note);
     private static string? MapCategory(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw)) return null;
@@ -83,12 +84,12 @@ public class AiService(IConfiguration config, IHttpClientFactory httpClientFacto
     // Khóa đã bỏ dấu để so khớp với Normalize().
     private static readonly Dictionary<string, string> Aliases = new(StringComparer.Ordinal)
     {
-        ["an uong"] = "food", ["do an"] = "food", ["thuc pham"] = "food", ["restaurant"] = "food", ["meal"] = "food", ["drink"] = "food", ["cafe"] = "food", ["coffee"] = "food",
-        ["mua sam"] = "shopping", ["do gia dung"] = "shopping", ["electronics"] = "shopping", ["appliance"] = "shopping", ["household"] = "shopping", ["goods"] = "shopping", ["supermarket"] = "shopping",
-        ["di lai"] = "transport", ["giao thong"] = "transport", ["taxi"] = "transport", ["fuel"] = "transport", ["gas"] = "transport",
-        ["giai tri"] = "entertainment", ["entertainment"] = "entertainment", ["movie"] = "entertainment",
+        ["an uong"] = "food", ["do an"] = "food", ["thuc pham"] = "food", ["restaurant"] = "food", ["meal"] = "food", ["drink"] = "food", ["cafe"] = "food", ["coffee"] = "food", ["food delivery"] = "food", ["bakery"] = "food", ["grocery"] = "food", ["convenience"] = "food", ["sieu thi mini"] = "food",
+        ["mua sam"] = "shopping", ["do gia dung"] = "shopping", ["electronics"] = "shopping", ["appliance"] = "shopping", ["household"] = "shopping", ["goods"] = "shopping", ["supermarket"] = "shopping", ["sieu thi"] = "shopping", ["market"] = "shopping",
+        ["di lai"] = "transport", ["giao thong"] = "transport", ["taxi"] = "transport", ["grab"] = "transport", ["fuel"] = "transport", ["gas"] = "transport", ["airline"] = "transport",
+        ["giai tri"] = "entertainment", ["entertainment"] = "entertainment", ["movie"] = "entertainment", ["cinema"] = "entertainment", ["hotel"] = "entertainment",
         ["nha o"] = "housing", ["housing"] = "housing", ["rent"] = "housing",
-        ["suc khoe"] = "health", ["health"] = "health", ["medical"] = "health", ["medicine"] = "health",
+        ["suc khoe"] = "health", ["health"] = "health", ["medical"] = "health", ["medicine"] = "health", ["pharmacy"] = "health", ["hospital"] = "health",
         ["giao duc"] = "education", ["hoc tap"] = "education", ["education"] = "education", ["school"] = "education",
         ["hoa don"] = "bills", ["bills"] = "bills", ["utility"] = "bills", ["utilities"] = "bills", ["electricity"] = "bills", ["water"] = "bills", ["internet"] = "bills", ["dien"] = "bills", ["dien luc"] = "bills", ["tien dien"] = "bills",
         ["khac"] = "other", ["other"] = "other"
@@ -96,6 +97,8 @@ public class AiService(IConfiguration config, IHttpClientFactory httpClientFacto
 
     public async Task<AnalysisResult> AnalyzeAsync(string summary)
     {
+        // Luôn tính từ số liệu (chuẩn, nhanh, không quota).
+        await Task.CompletedTask;
         var key = ApiKey;
         if (string.IsNullOrWhiteSpace(key)) return FallbackAnalysis(summary);
 
@@ -114,6 +117,9 @@ public class AiService(IConfiguration config, IHttpClientFactory httpClientFacto
         }
         catch { return FallbackAnalysis(summary); }
     }
+
+    /// <summary>AI đánh giá + lời khuyên từ số liệu (OpenRouter free); null khi lỗi/hết quota.</summary>
+    public Task<string?> EvaluateAsync(string summary) => openRouter.NarrateAnalysisAsync(summary);
 
     private async Task<string> GenerateAsync(string key, List<object> parts)
     {
@@ -149,24 +155,41 @@ public class AiService(IConfiguration config, IHttpClientFactory httpClientFacto
 
     private static readonly (string Cat, double Conf, string[] Keys)[] Rules =
     [
-        ("transport", 0.8, ["grab", "taxi", " xe", "xang", "ve xe", "gui xe", "bus", "tau", "may bay", "be "]),
-        ("food", 0.82, ["pho", "com", "bun", "mi ", "mi,", "hao hao", "banh", "an ", "do an", "thuc pham", "cafe", "ca phe", "tra sua", "nha hang", "quan an", "lau", "nuong", "buffet", "food"]),
-        ("shopping", 0.8, ["mua", "shop", "quan ao", "giay", "dep", "tui", "dien may", "gia dung", "sieu thi", "shopee", "lazada", "tiki", "quat", "tivi", "tu lanh", "zara"]),
-        ("entertainment", 0.75, ["phim", "cgv", "game", "karaoke", "nhac", "concert", "du lich", "vui choi", "gym"]),
-        ("health", 0.8, ["thuoc", "kham", "benh", "y te", "nha khoa", "suc khoe"]),
-        ("education", 0.8, ["hoc", "sach", "khoa hoc", "hoc phi", "truong", "lop ", "gia su", "giao duc"]),
-        ("housing", 0.75, ["thue nha", "chung cu", "ky tuc xa", "tien nha"]),
-        ("bills", 0.78, ["dien luc", "tien dien", "tien nuoc", "internet", "dien thoai", "cuoc", "truyen hinh", "gas", "hoa don"])
+        ("food", 0.82, ["grabfood", "grab food", "shopeefood", "shopee food", "befood", "gofood", "pho", "com ", "com,", "bun", "mi ", "mi,", "hao hao", "banh mi", "banh", "an uong", "an sang", "an trua", "an toi", "do an", "mon an", "thuc an", "thuc pham", "cafe", "ca phe", "tra sua", "nha hang", "quan an", "lau ", "nuong", "canh ", "sup ", "chien ", "buffet", "food", "restaurant", "highlands", "phuc long", "the coffee house", "starbucks", "kfc", "lotteria", "jollibee", "pizza", "sushi", "di cho", "tap hoa", "bach hoa xanh", "winmart", "circle k", "ministop", "gs25", "family mart", "big c", "aeon", "coopmart", "mega market", "com phan", "com binh dan", "hu tieu", "che ", "sinh to", "nuoc mia", "nuoc ep", "an vat", "ga ran", "tra chanh", "tra dao", "caphe", "espresso", "latte", "grocery", "bakery", "cho dong", "cho "]),
+        ("shopping", 0.8, ["mua sam", "shop", "quan ao", "ao thun", "ao so mi", "ao khoac", "ao len", "giay", "giay dep", "dep quai", "dep le", "tui xach", "dien may", "dien may xanh", "the gioi di dong", "fpt shop", "cellphones", "hoang ha", "mediamart", "nguyen kim", "cho lon", "gia dung", "sieu thi", "shopee", "lazada", "tiki", "quat", "tivi", "tu lanh", "zara", "uniqlo", "adidas", "nike", "my pham", "guardian", "hieu sach", "fahasa", "van phong pham", "noi that", "do choi", "concung", "con cung", "xiaomi", "samsung", "iphone", "apple", "oppo", "laptop", "tai nghe", "son moi", "mua "]),
+        ("transport", 0.8, ["grab", "taxi", "xang", "ve xe ", "gui xe", "xe may", "xe om", "tien xe", "di xe", "bus", "tau hoa", "tau cao toc", "may bay", "be ", "grabbike", "grabcar", "grab bike", "grab car", "xanh sm", "gojek", "vietjet", "vietnam airlines", "bamboo", "ve may bay", "san bay", "ben xe", "ve tau", "duong sat", "metro", "petrolimex", "do xang", "rua xe", "sua xe", "thay nhot", "dau nhot", "dang kiem", "phi duong bo", "cao toc", "traveloka", "lop xe"]),
+        ("entertainment", 0.75, ["phim", "cgv", "game", "karaoke", "nhac", "concert", "du lich", "vui choi", "gym", "netflix", "spotify", "steam", "lotte cinema", "galaxy cinema", "massage", "spa", "cinema", "vinwonders", "dam sen", "suoi tien", "bao tang", "rap chieu phim", "khach san", "resort", "ve so", "lam dep", "mua ve", "ve xem phim", "kham pha"]),
+        ("health", 0.8, ["thuoc", "kham", "benh", "y te", "nha khoa", "suc khoe", "pharmacity", "long chau", "an khang", "nha thuoc", "quay thuoc", "hieu thuoc", "medlatec", "vinmec", "hoan my", "tam anh", "cho ray", "bach mai", "viet duc", "kham benh", "sieu am", "xet nghiem", "x quang", "noi soi", "tiem chung", "vacxin", "vaccine", "rang ham mat", "bao hiem y te", "kinh mat"]),
+        ("education", 0.8, ["hoc", "sach", "khoa hoc", "hoc phi", "truong", "truong hoc", "lop ", "gia su", "giao duc", "ielts", "toeic", "toefl", "luyen thi", "trung tam", "coursera", "udemy", "hoc vien", "dai hoc", "cao dang", "tieu hoc", "mam non", "dong phuc", "tap vo", "but bi", "cap sach", "hoc lieu"]),
+        ("housing", 0.78, ["cho thue", "thue nha", "tien thue", "tien phong", "phong tro", "chung cu", "ky tuc xa", "tien nha", "phi quan ly", "phi dich vu", "phi gui xe thang", "sua nha", "chong tham", "son nha", "ve sinh may lanh"]),
+        ("bills", 0.78, ["dien luc", "tien dien", "tien nuoc", "nuoc sach", "cap nuoc", "internet", "dien thoai", "cuoc", "truyen hinh", "gas", "hoa don", "evn", "vnpt", "viettel", "mobifone", "vinaphone", "fpt", "cmc", "sctv", "k+", "nap tien", "nap card", "momo", "zalopay", "vnpay", "chuyen khoan", "phi duy tri"])
     ];
 
-    /// <summary>Phân loại theo từ khóa (bỏ dấu); trả danh mục chính + tất cả danh mục khớp (cho hóa đơn nhiều loại).</summary>
+    /// <summary>
+    /// Phân loại theo từ khóa (bỏ dấu); từ khóa khớp DÀI NHẤT thắng (cụ thể nhất đúng nhất,
+    /// VD "grabfood" thắng "grab", "cho thue" thắng "cho "); hòa thì giữ thứ tự Rules.
+    /// Trả danh mục chính + tất cả danh mục khớp (cho hóa đơn nhiều loại).
+    /// </summary>
     private static ClassificationResult Heuristic(string? note)
     {
         var s = Normalize(note);
         if (s.Length == 0) return new("other", 0.2, []);
-        var matched = Rules.Where(r => r.Keys.Any(k => s.Contains(k))).ToList();
-        if (matched.Count == 0) return new("other", 0.3, []);
-        return new(matched[0].Cat, matched[0].Conf, matched.Select(m => m.Cat).ToList());
+        ClassificationResult? best = null;
+        var bestLen = 0;
+        var matched = new List<string>();
+        foreach (var r in Rules)
+        {
+            var hit = 0;
+            foreach (var k in r.Keys)
+                if (s.Contains(k))
+                {
+                    hit = Math.Max(hit, k.Length);
+                    if (!matched.Contains(r.Cat)) matched.Add(r.Cat);
+                }
+            if (hit > bestLen) { bestLen = hit; best = new(r.Cat, r.Conf, []); }
+        }
+        if (best is null) return new("other", 0.3, []);
+        return best with { Candidates = matched };
     }
 
     /// <summary>Bỏ dấu tiếng Việt + lower để so khớp không phụ thuộc dấu ("Phở" = "Pho").</summary>
@@ -189,12 +212,14 @@ public class AiService(IConfiguration config, IHttpClientFactory httpClientFacto
     {
         long total = 0;
         double avg = 0;
+        long prevTotal = -1;
         var cats = new List<(string Key, long Amt)>();
         var days = new List<(string Day, long Amt)>();
         foreach (var raw in text.Split('\n'))
         {
             var l = raw.Trim();
             if (l.StartsWith("Total: ") && long.TryParse(l[7..], out var t)) total = t;
+            else if (l.StartsWith("Previous total: ") && long.TryParse(l[16..], out var pt)) prevTotal = pt;
             else if (l.StartsWith("Average daily: ") && double.TryParse(l[15..], System.Globalization.CultureInfo.InvariantCulture, out var a)) avg = a;
             else if (l.StartsWith("Category "))
             {
@@ -218,6 +243,14 @@ public class AiService(IConfiguration config, IHttpClientFactory httpClientFacto
 
         var trends = new List<string> { $"Nhóm chiếm tỷ trọng cao nhất: {CatName(top.Key)} ({share}%)." };
         if (ordered.Count > 1) trends.Add($"Nhóm tiếp theo: {CatName(ordered[1].Key)} ({ordered[1].Amt:N0}đ).");
+        if (prevTotal >= 0)
+        {
+            var diff = total - prevTotal;
+            var pct = prevTotal > 0 ? (int)Math.Round(diff * 100.0 / prevTotal) : 100;
+            trends.Add(diff >= 0
+                ? $"Tăng {pct}% so với kỳ trước ({prevTotal:N0}đ)."
+                : $"Giảm {Math.Abs(pct)}% so với kỳ trước ({prevTotal:N0}đ).");
+        }
 
         var anomalies = new List<string>();
         if (days.Count > 0)

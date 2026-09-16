@@ -11,11 +11,28 @@ public static class ExpenseEndpoints
     public static IEndpointRouteBuilder MapExpenses(this IEndpointRouteBuilder app)
     {
         var g = app.MapGroup("/api/expenses").RequireAuthorization();
-        g.MapGet("", async (ClaimsPrincipal p, AppDbContext db) => {
+        g.MapGet("", async (int? page, int? pageSize, ClaimsPrincipal p, AppDbContext db) => {
             var uid = UserId(p);
-            var rows = await db.Expenses.Where(x => x.UserId == uid).OrderByDescending(x => x.ExpenseDate).ThenByDescending(x => x.Id)
+            var pg = Math.Max(1, page ?? 1);
+            var ps = Math.Clamp(pageSize ?? 20, 1, 100);
+            var query = db.Expenses.Where(x => x.UserId == uid).OrderByDescending(x => x.ExpenseDate).ThenByDescending(x => x.Id);
+            var total = await query.CountAsync();
+            var rows = await query.Skip((pg - 1) * ps).Take(ps)
                 .Select(x => new { x.Id, x.Amount, x.Category, x.ImageUrl, x.Note, x.ExpenseDate, x.AiConfidence }).ToListAsync();
-            return rows.Select(x => new ExpenseDto(x.Id, x.Amount, x.Category, x.ImageUrl, x.Note, x.ExpenseDate.ToString("yyyy-MM-dd"), x.AiConfidence)).ToList();
+            var items = rows.Select(x => new ExpenseDto(x.Id, x.Amount, x.Category, x.ImageUrl, x.Note, x.ExpenseDate.ToString("yyyy-MM-dd"), x.AiConfidence)).ToList();
+            return Results.Ok(new PagedExpensesDto(items, total, pg, ps));
+        });
+        // Xóa hàng loạt (bulk action đầu tiên): chỉ xóa bản ghi của chính user + dọn ảnh.
+        g.MapPost("/bulk-delete", async (BulkDeleteRequest req, ClaimsPrincipal p, AppDbContext db, StorageService storage) => {
+            var uid = UserId(p);
+            var ids = (req.Ids ?? new List<long>()).Distinct().Take(100).ToList();
+            if (ids.Count == 0) return Results.BadRequest(new { message = "Ids is required." });
+            var rows = await db.Expenses.Where(x => x.UserId == uid && ids.Contains(x.Id)).ToListAsync();
+            var urls = rows.Select(x => x.ImageUrl).ToList();
+            db.Expenses.RemoveRange(rows);
+            await db.SaveChangesAsync();
+            foreach (var url in urls) storage.DeleteByUrl(url);
+            return Results.Ok(new { deleted = rows.Count });
         });
         g.MapPost("", async (HttpRequest request, ClaimsPrincipal p, AppDbContext db, StorageService storage, AiService ai, IWebHostEnvironment env) => {
             var form = await request.ReadFormAsync();
@@ -88,6 +105,8 @@ public static class ExpenseEndpoints
 
     private static long UserId(ClaimsPrincipal p) => long.Parse(p.FindFirstValue(ClaimTypes.NameIdentifier)!);
     public record ExpenseUpsert(long Amount, string Category, string? Note, DateOnly ExpenseDate);
+    public record BulkDeleteRequest(List<long> Ids);
+    public record PagedExpensesDto(List<ExpenseDto> Items, int Total, int Page, int PageSize);
     public record ExpenseRestore(long Amount, string Category, string? Note, DateOnly ExpenseDate, string? ImageUrl, double? AiConfidence);
     public record SharedExpenseDto(long Id, long Amount, string Category, string? ImageUrl, string? Note, string ExpenseDate, double? AiConfidence, string OwnerUsername);
     public record ExpenseDto(long Id, long Amount, string Category, string? ImageUrl, string? Note, string ExpenseDate, double? AiConfidence);

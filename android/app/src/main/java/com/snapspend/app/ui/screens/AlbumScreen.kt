@@ -1,6 +1,7 @@
 package com.snapspend.app.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,10 +17,18 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SelectAll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -32,11 +41,15 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -70,8 +83,14 @@ fun AlbumScreen(refreshTick: Int, onOpen: (Long) -> Unit, snack: SnackbarHostSta
     val filterCat by vm.filterCat.collectAsStateWithLifecycle()
     val sortDesc by vm.sortDesc.collectAsStateWithLifecycle()
     val refreshing by vm.refreshing.collectAsStateWithLifecycle()
+    val totalCount by vm.totalCount.collectAsStateWithLifecycle()
+    val page by vm.page.collectAsStateWithLifecycle()
+    val selectedIds by vm.selectedIds.collectAsStateWithLifecycle()
+    val selectionMode by vm.selectionMode.collectAsStateWithLifecycle()
+    val bulkDeleted by vm.bulkDeleted.collectAsStateWithLifecycle()
     val loadError by vm.loadError.collectAsStateWithLifecycle()
     val lastDeleted by vm.lastDeleted.collectAsStateWithLifecycle()
+    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     LaunchedEffect(refreshTick) { vm.refresh() }
 
@@ -82,15 +101,67 @@ fun AlbumScreen(refreshTick: Int, onOpen: (Long) -> Unit, snack: SnackbarHostSta
         if (r == SnackbarResult.ActionPerformed) vm.undoDelete() else vm.clearUndo()
     }
 
+    // Snackbar sau khi xóa hàng loạt.
+    LaunchedEffect(bulkDeleted) {
+        val n = bulkDeleted
+        if (n > 0) {
+            snack.showSnackbar("Đã xóa $n khoản chi")
+            vm.clearBulkDeleted()
+        }
+    }
+
+    // Hộp xác nhận trước khi xóa hàng loạt.
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Xóa ${selectedIds.size} khoản chi?") },
+            text = { Text("Không thể hoàn tác khi xóa hàng loạt.") },
+            confirmButton = {
+                Button(
+                    onClick = { showDeleteConfirm = false; vm.deleteSelected() },
+                    modifier = Modifier.testTag("btn_confirm_bulk_delete")
+                ) { Text("Xóa") }
+            },
+            dismissButton = { TextButton(onClick = { showDeleteConfirm = false }) { Text("Hủy") } }
+        )
+    }
+
     Column(modifier.fillMaxSize()) {
         Column(Modifier.padding(Spacing.s16)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column {
-                    Text("Album", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text("${visible.size} khoản chi", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (selectionMode) {
+                // Thanh bulk action: đếm đã chọn + Chọn tất cả + Xóa + Hủy.
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Đã chọn ${selectedIds.size}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Row {
+                        IconButton(onClick = { vm.selectAll(visible.map { it.id }) }, modifier = Modifier.testTag("btn_select_all")) {
+                            Icon(Icons.Filled.SelectAll, "Chọn tất cả")
+                        }
+                        IconButton(
+                            onClick = { showDeleteConfirm = true },
+                            enabled = selectedIds.isNotEmpty(),
+                            modifier = Modifier.testTag("btn_delete_selected")
+                        ) { Icon(Icons.Filled.Delete, "Xóa đã chọn") }
+                        IconButton(onClick = vm::clearSelection, modifier = Modifier.testTag("btn_cancel_selection")) {
+                            Icon(Icons.Filled.Close, "Hủy chọn")
+                        }
+                    }
                 }
-                Row {
-                    IconButton(onClick = vm::toggleSort) { Icon(Icons.Filled.Refresh, if (sortDesc) "Mới nhất" else "Cũ nhất") }
+            } else {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Column {
+                        Text("Album", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                        Text(
+                            if (vm.isSearching()) "$totalCount khoản chi (tìm trong tất cả)"
+                            else "Trang $page/${vm.totalPages()} • $totalCount khoản chi",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Row {
+                        IconButton(onClick = vm::enterSelection, modifier = Modifier.testTag("btn_enter_selection")) {
+                            Icon(Icons.Filled.SelectAll, "Chọn nhiều")
+                        }
+                        IconButton(onClick = vm::toggleSort) { Icon(Icons.Filled.Refresh, if (sortDesc) "Mới nhất" else "Cũ nhất") }
+                    }
                 }
             }
             Spacer(Modifier.height(Spacing.s8))
@@ -110,42 +181,102 @@ fun AlbumScreen(refreshTick: Int, onOpen: (Long) -> Unit, snack: SnackbarHostSta
             PullToRefreshBox(
                 isRefreshing = refreshing,
                 onRefresh = vm::refresh,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.weight(1f).fillMaxWidth()
             ) {
                 LazyColumn(Modifier.fillMaxSize().padding(horizontal = Spacing.s16), verticalArrangement = Arrangement.spacedBy(Spacing.s12)) {
                     items(visible, key = { it.id }) { e ->
-                        val dismissState = rememberSwipeToDismissBoxState()
-                        // Chỉ xóa khi đã settle sang EndToStart (tránh gọi trùng khi đang kéo).
-                        LaunchedEffect(dismissState.currentValue) {
-                            if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) vm.delete(e)
-                        }
-                        SwipeToDismissBox(
-                            state = dismissState,
-                            backgroundContent = {
-                                Box(Modifier.fillMaxSize().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.error), contentAlignment = Alignment.CenterEnd) {
-                                    Text("Xóa  ", color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.Bold)
+                        val selected = selectedIds.contains(e.id)
+                        // Click/long-press đặt NGOÀI SwipeToDismissBox để không bị nuốt gesture.
+                        Box(
+                            Modifier.combinedClickable(
+                                onClick = { if (selectionMode) vm.toggleSelect(e.id) else onOpen(e.id) },
+                                onLongClick = { vm.startSelection(e.id) }
+                            ).testTag("card_expense_${e.id}")
+                        ) {
+                            if (selectionMode) {
+                                ExpenseCard(e, selected = selected, showCheckbox = true, onToggle = { vm.toggleSelect(e.id) })
+                            } else {
+                                val dismissState = rememberSwipeToDismissBoxState()
+                                // Chỉ xóa khi đã settle sang EndToStart (tránh gọi trùng khi đang kéo).
+                                LaunchedEffect(dismissState.currentValue) {
+                                    if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) vm.delete(e)
+                                }
+                                SwipeToDismissBox(
+                                    state = dismissState,
+                                    backgroundContent = {
+                                        Box(Modifier.fillMaxSize().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.error), contentAlignment = Alignment.CenterEnd) {
+                                            Text("Xóa  ", color = MaterialTheme.colorScheme.surface, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                ) {
+                                    ExpenseCard(e, selected = false, showCheckbox = false, onToggle = {})
                                 }
                             }
-                        ) {
-                            ExpenseCard(e, onClick = { onOpen(e.id) })
                         }
                     }
                 }
+            }
+            // Thanh chuyển trang cố định dưới list (luôn thấy, không cần cuộn).
+            val totalPages = vm.totalPages()
+            if (!refreshing && visible.isNotEmpty() && totalPages > 1 && !vm.isSearching() && !selectionMode) {
+                PageBar(
+                    page = page,
+                    totalPages = totalPages,
+                    onPrev = vm::prevPage,
+                    onNext = vm::nextPage,
+                    onJump = vm::goToPage
+                )
             }
         }
     }
 }
 
 @Composable
-private fun ExpenseCard(e: ExpenseDto, onClick: () -> Unit) {
+private fun PageBar(page: Int, totalPages: Int, onPrev: () -> Unit, onNext: () -> Unit, onJump: (Int) -> Unit) {
+    // Hiện tối đa 5 số trang quanh trang hiện tại.
+    val start = maxOf(1, minOf(page - 2, totalPages - 4))
+    val end = minOf(totalPages, start + 4)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = onPrev, enabled = page > 1, modifier = Modifier.testTag("btn_page_prev")) {
+            Icon(Icons.Filled.ChevronLeft, "Trang trước")
+        }
+        for (n in start..end) {
+            if (n == page) {
+                Button(onClick = {}, enabled = false, modifier = Modifier.testTag("btn_page_$n")) { Text("$n") }
+            } else {
+                TextButton(onClick = { onJump(n) }, modifier = Modifier.testTag("btn_page_$n")) { Text("$n") }
+            }
+        }
+        IconButton(onClick = onNext, enabled = page < totalPages, modifier = Modifier.testTag("btn_page_next")) {
+            Icon(Icons.Filled.ChevronRight, "Trang sau")
+        }
+    }
+    Text(
+        "Trang $page/$totalPages",
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        style = MaterialTheme.typography.labelSmall,
+        modifier = Modifier.fillMaxWidth().testTag("text_page_info")
+    )
+}
+
+@Composable
+private fun ExpenseCard(e: ExpenseDto, selected: Boolean, showCheckbox: Boolean, onToggle: () -> Unit) {
     Card(
-        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+        ),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
     ) {
         Row(Modifier.padding(Spacing.s12), verticalAlignment = Alignment.CenterVertically) {
+            if (showCheckbox) {
+                Checkbox(
+                    checked = selected,
+                    onCheckedChange = { onToggle() },
+                    modifier = Modifier.testTag("checkbox_expense_${e.id}")
+                )
+            }
             if (e.imageUrl != null) AsyncImage(model = e.imageUrl, contentDescription = null, modifier = Modifier.size(72.dp).clip(RoundedCornerShape(12.dp)), contentScale = ContentScale.Crop)
             else Box(Modifier.size(72.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.outline), contentAlignment = Alignment.Center) { Text("🧾") }
             Spacer(Modifier.width(Spacing.s12))

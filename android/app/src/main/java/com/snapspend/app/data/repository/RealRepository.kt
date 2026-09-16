@@ -31,9 +31,27 @@ class RealRepository(private val context: Context, private val db: AppDatabase, 
     override suspend fun login(email: String, password: String) = net { api.login(AuthRequest(email, password)) }
     override suspend fun register(email: String, username: String, password: String) = net { api.register(RegisterRequest(email, username, password)) }
 
-    override suspend fun refreshExpenses() {
-        val remote = net { api.expenses() }
-        db.expenseDao().replaceAll(remote.map { it.toEntity() })
+    override suspend fun refreshExpenses(pageSize: Int): Int = loadPage(1, pageSize)
+
+    override suspend fun loadPage(page: Int, pageSize: Int): Int {
+        val pg = maxOf(1, page)
+        val paged = net { api.expenses(pg, pageSize) }
+        db.expenseDao().replaceAll(paged.items.map { it.toEntity() })
+        return paged.total
+    }
+
+    override suspend fun refreshAllExpenses(pageSize: Int): Int {
+        // Tải tuần tự từng trang rồi thay cache một lần (giới hạn 20 trang để tránh treo).
+        val all = mutableListOf<ExpenseDto>()
+        var total = 0
+        for (pg in 1..20) {
+            val paged = net { api.expenses(pg, pageSize) }
+            total = paged.total
+            all += paged.items
+            if (all.size >= total || paged.items.isEmpty()) break
+        }
+        db.expenseDao().replaceAll(all.map { it.toEntity() })
+        return total
     }
 
     override suspend fun createExpense(uri: Uri?, amount: Long, category: String, note: String?, date: String): ExpenseDto {
@@ -65,6 +83,13 @@ class RealRepository(private val context: Context, private val db: AppDatabase, 
         db.expenseDao().delete(id)
     }
 
+    override suspend fun deleteExpenses(ids: List<Long>): Int {
+        if (ids.isEmpty()) return 0
+        val result = net { api.bulkDelete(BulkDeleteRequest(ids.distinct())) }
+        ids.forEach { db.expenseDao().delete(it) }
+        return result.deleted
+    }
+
     override suspend fun restoreExpense(expense: ExpenseDto): ExpenseDto {
         val result = net {
             api.restoreExpense(
@@ -76,7 +101,8 @@ class RealRepository(private val context: Context, private val db: AppDatabase, 
     }
 
     override suspend fun stats(from: String, to: String) = net { api.stats(from, to) }
-    override suspend fun analyze(from: String, to: String) = net { api.analyze(from, to) }
+    override suspend fun analyzeBasic(from: String, to: String) = net { api.analyzeBasic(from, to) }
+    override suspend fun analyzeFull(from: String, to: String) = net { api.analyzeFull(from, to) }
     override suspend fun deleteAccount(): Unit { net { api.deleteAccount() } }
     override suspend fun friends() = net { api.friends() }
     override suspend fun addFriend(username: String) = net { api.addFriend(AddFriendRequest(username)) }
@@ -97,6 +123,12 @@ class RealRepository(private val context: Context, private val db: AppDatabase, 
             tempFile?.delete()
         }
     }
+
+    override suspend fun classifyItems(names: List<String>): List<ItemCategoryDto> =
+        net { api.classifyItems(ClassifyItemsRequest(names.take(20))) }
+
+    override suspend fun extractReceipt(text: String): ReceiptExtractDto? =
+        runCatching { net { api.extractReceipt(ExtractReceiptRequest(text.take(2000))) } }.getOrNull()
 
     /** Bọc mọi lỗi mạng/HTTP thành thông báo tiếng Việt thống nhất cho UI. */
     private suspend fun <T> net(block: suspend () -> T): T =

@@ -24,6 +24,9 @@ class ExpenseFormViewModel(private val repo: SnapSpendRepository, private val ha
     val candidates: StateFlow<List<String>> = handle.getStateFlow("candidates", emptyList<String>())
     private val _classifying = MutableStateFlow(false)
     val classifying: StateFlow<Boolean> = _classifying.asStateFlow()
+    // Các món tách từ hóa đơn (tạm thời, không lưu SavedState vì không Parcelable).
+    private val _items = MutableStateFlow<List<com.snapspend.app.data.ocr.ReceiptOcr.ReceiptItem>>(emptyList())
+    val items: StateFlow<List<com.snapspend.app.data.ocr.ReceiptOcr.ReceiptItem>> = _items.asStateFlow()
     private val _loading = MutableStateFlow(false)
     val loading: StateFlow<Boolean> = _loading.asStateFlow()
     private val _error = MutableStateFlow<String?>(null)
@@ -43,6 +46,32 @@ class ExpenseFormViewModel(private val repo: SnapSpendRepository, private val ha
         }
     }
 
+    fun setOcrText(fullText: String) {
+        if (fullText.isNotBlank()) {
+            handle["ocrText"] = fullText.take(600)
+            _confidence.value = null
+        }
+    }
+
+    /** Dùng mini model tách text OCR thành nội dung sạch + tổng; chỉ áp dụng khi hợp lệ. */
+    suspend fun extractViaAi(text: String): Boolean {
+        val res = runCatching { repo.extractReceipt(text) }.getOrNull() ?: return false
+        if (res.fallback) return false
+        val summary = buildString {
+            res.merchant?.takeIf { it.isNotBlank() }?.let { append(it) }
+            val names = res.items.mapNotNull { it.name.takeIf { n -> n.isNotBlank() } }.take(3)
+            if (names.isNotEmpty()) {
+                if (isNotEmpty()) append(" - ")
+                append(names.joinToString(", "))
+            }
+        }.take(140)
+        val totalOk = res.total != null && res.total in 1..9_999_999_999
+        if (summary.isBlank() && !totalOk) return false
+        if (summary.isNotBlank()) handle["note"] = summary
+        if (totalOk && amount.value.isBlank()) handle["amount"] = res.total.toString()
+        return true
+    }
+
     /** Điền số tiền tách từ hóa đơn nếu người dùng chưa nhập. */
     fun prefillAmount(value: Long) {
         if (amount.value.isBlank()) handle["amount"] = value.toString()
@@ -52,7 +81,21 @@ class ExpenseFormViewModel(private val repo: SnapSpendRepository, private val ha
 
     fun canSave(): Boolean = !_loading.value && amountOk() && category.value.isNotBlank()
 
-    /** Gọi AI phân loại ảnh + ghi chú; kết quả điền sẵn vào category để người dùng xem/sửa. */
+    /** Phân tích hóa đơn thành danh sách món + danh mục từng món. */
+    fun analyzeReceipt() {
+        val ocr = ocrText.value.ifBlank { return }
+        val parsed = com.snapspend.app.data.ocr.ReceiptOcr.parseItems(ocr)
+        _items.value = parsed
+        if (parsed.isEmpty()) return
+        viewModelScope.launch {
+            val cats = runCatching { repo.classifyItems(parsed.map { it.name }) }.getOrDefault(emptyList())
+            // Lưu danh mục từng món vào map tạm để UI hiển thị; tách khi bấm nút.
+            _itemCats.value = cats.associate { it.name to it.category }
+        }
+    }
+
+    private val _itemCats = MutableStateFlow<Map<String, String>>(emptyMap())
+    val itemCats: StateFlow<Map<String, String>> = _itemCats.asStateFlow()
     fun classify(uri: Uri?) {
         viewModelScope.launch {
             _classifying.value = true
@@ -79,5 +122,24 @@ class ExpenseFormViewModel(private val repo: SnapSpendRepository, private val ha
         }
     }
 
-    fun reset() { handle["amount"] = ""; handle["category"] = ""; handle["note"] = ""; handle["ocrText"] = ""; handle["candidates"] = emptyList<String>(); _confidence.value = null }
+    /** Tách hóa đơn thành N khoản (mỗi món 1 khoản, giữ số tiền + danh mục từng món). */
+    fun splitExpenses(onDone: () -> Unit) {
+        val list = _items.value
+        if (list.isEmpty()) return
+        viewModelScope.launch {
+            _loading.value = true
+            _error.value = null
+            runCatching {
+                val date = LocalDate.now().toString()
+                list.forEach { item ->
+                    val cat = _itemCats.value[item.name] ?: "other"
+                    repo.createExpense(null, item.amount, cat, item.name, date)
+                }
+            }.onSuccess { onDone() }
+                .onFailure { _error.value = it.message ?: "Tách khoản thất bại" }
+            _loading.value = false
+        }
+    }
+
+    fun reset() { handle["amount"] = ""; handle["category"] = ""; handle["note"] = ""; handle["ocrText"] = ""; handle["candidates"] = emptyList<String>(); _confidence.value = null; _items.value = emptyList(); _itemCats.value = emptyMap() }
 }

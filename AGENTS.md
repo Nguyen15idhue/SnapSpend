@@ -174,9 +174,9 @@ SnapSpend/
 │   ├── app/build.gradle.kts
 │   └── app/src/main/java/com/snapspend/app/
 │       ├── MainActivity.kt
-│       ├── data/{AppConfig,local,mock,remote,repository}/
+│       ├── data/{local,ocr,remote,repository}/
 │       ├── model/Models.kt
-│       └── ui/{components,format,screens,theme}/
+│       └── ui/{components,format,screens,theme,viewmodel}/
 ├── server/
 │   ├── docker-compose.yml
 │   └── src/SnapSpend.Api/
@@ -184,9 +184,9 @@ SnapSpend/
 │       ├── Data/{AppDbContext,DesignTimeDbFactory}.cs
 │       ├── Migrations/
 │       ├── Endpoints/
-│       ├── Services/{AuthService,AiService,StorageService}.cs
-│       └── Models/Entities.cs
-└── docs/{1,2}/
+│       ├── Services/{AuthService,AiService,OllamaService,StorageService}.cs
+│       └── Models/{Entities,CategoryCatalog}.cs
+└── docs/{1,2,3}/
 ```
 
 ---
