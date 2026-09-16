@@ -1,0 +1,239 @@
+{
+  "_meta": {
+    "purpose": "Đáp án chốt cho gate nhận diện F4.5 (kế hoạch 08). Tổng 13 bill đã duyệt trong chat 2026-09-16.",
+    "schema": "{file, merchant, date, total, category, items[{name, qty, amount}], note}",
+    "rules": [
+      "total = số ở dòng Tổng cuối cùng (không phải subtotal/VAT/phụ thu).",
+      "items[].amount = thành tiền từng món (số cuối dòng). Giữ nguyên dòng trùng tên (VD bill13 có 2 dòng Coca).",
+      "category: 12 food + 1 entertainment (bill8, theo merchant Bida).",
+      "bill7 viết tay: chỉ chấm total + category; amount được phép TRỐNG + hint (không tự điền).",
+      "Tên món đọc từ ảnh thật, dòng khó đọc ghi trong needsReview để người dùng duyệt."
+    ]
+  },
+  "bills": [
+    {
+      "file": "images/bill1.jpg",
+      "merchant": "Quán nhậu Bình Dân",
+      "date": null,
+      "total": 326000,
+      "category": "food",
+      "items": [
+        { "name": "Tiger nâu", "qty": 4, "amount": 56000 },
+        { "name": "Bánh tráng", "qty": 3, "amount": 9000 },
+        { "name": "Cá Lóc chiên mắm xoài", "qty": 1, "amount": 60000 },
+        { "name": "Bao tử ếch xào sả", "qty": 1, "amount": 35000 },
+        { "name": "Hến xào", "qty": 1, "amount": 12000 },
+        { "name": "Khoai tây chiên", "qty": 1, "amount": 15000 },
+        { "name": "Bắp non xào", "qty": 1, "amount": 15000 },
+        { "name": "Nước ngọt chai", "qty": 2, "amount": 16000 },
+        { "name": "Nước suối", "qty": 1, "amount": 8000 },
+        { "name": "Sụn Gà chiên mắm", "qty": 1, "amount": 40000 },
+        { "name": "Gân cá ngừ xào sả", "qty": 1, "amount": 35000 },
+        { "name": "Thuốc ngựa", "qty": 1, "amount": 25000 }
+      ],
+      "note": "Tên món 1 dòng, SL/đơn giá dòng sau; ảnh dọc + ngón tay che."
+    },
+    {
+      "file": "images/bill1.png",
+      "merchant": "BEER CLUP",
+      "date": "2016-07-29",
+      "total": 1053000,
+      "category": "food",
+      "items": [
+        { "name": "SAPORO LY", "qty": 1, "amount": 25000 },
+        { "name": "CARLSBERG LY", "qty": 1, "amount": 28000 },
+        { "name": "PALATINUM THÁP", "qty": 1, "amount": 250000 },
+        { "name": "CARLSBERG THÁP", "qty": 1, "amount": 250000 },
+        { "name": "SAPORO THÁP", "qty": 1, "amount": 250000 },
+        { "name": "TIGER THÁP", "qty": 1, "amount": 250000 }
+      ],
+      "note": "Chữ kim dot-matrix; ảnh ghi PALATINUM (đúng là PLATINUM)."
+    },
+    {
+      "file": "images/bill2.jpg",
+      "merchant": "CUKCUK (MISA)",
+      "date": "2024-03-24",
+      "total": 1795000,
+      "category": "food",
+      "items": [
+        { "name": "Lẩu bò Mỹ Miso (nạc vai)", "qty": 1, "amount": 440000 },
+        { "name": "Mì xào hải sản", "qty": 1, "amount": 185000 },
+        { "name": "Thịt khìa nước dừa", "qty": 1, "amount": 190000 },
+        { "name": "Cua gạch", "qty": 1, "amount": 980000 }
+      ],
+      "note": "Ảnh nghiêng, tay che. needsReview: tên món dòng 3 đọc chưa chắc.",
+      "needsReview": [2]
+    },
+    {
+      "file": "images/bill3.jpg",
+      "merchant": "Cà phê Hoàng Phúc",
+      "date": "2019-02-18",
+      "total": 54000,
+      "category": "food",
+      "items": [
+        { "name": "Cà phê đá", "qty": 1, "amount": 10000 },
+        { "name": "Bún thịt Xào", "qty": 1, "amount": 15000 },
+        { "name": "Cà phê sữa đá", "qty": 1, "amount": 12000 },
+        { "name": "Cơm tấm", "qty": 1, "amount": 17000 }
+      ],
+      "note": "Bill dễ nhất, phải đúng 100%."
+    },
+    {
+      "file": "images/bill4.webp",
+      "merchant": "Saigon POS",
+      "date": null,
+      "total": 324555,
+      "category": "food",
+      "items": [
+        { "name": "Trà Lipton sữa", "qty": 1, "amount": 27000 },
+        { "name": "Trà nhài", "qty": 3, "amount": 57000 },
+        { "name": "Trà quất", "qty": 1, "amount": 22000 },
+        { "name": "Pizza ham & pineapple", "qty": 1, "amount": 65000 },
+        { "name": "Pizza Margherita", "qty": 1, "amount": 45000 },
+        { "name": "Pizza hải sản", "qty": 1, "amount": 65000 }
+      ],
+      "note": "Bẫy VAT: subtotal 281000 + 5% PV + 10% VAT = 324555. needsReview: tên món dòng 3.",
+      "needsReview": [2]
+    },
+    {
+      "file": "images/bill5.webp",
+      "merchant": "Phiếu tạm tính (bàn 18)",
+      "date": null,
+      "total": 7751000,
+      "category": "food",
+      "items": [
+        { "name": "Khăn", "qty": 60, "amount": 180000 },
+        { "name": "Đậu phộng", "qty": 4, "amount": 120000 },
+        { "name": "Tôm sú", "qty": 1, "amount": 690000 },
+        { "name": "Gỏi xoài bằm", "qty": 2, "amount": 198000 },
+        { "name": "Cá lang", "qty": 2.5, "amount": 975000 },
+        { "name": "Món viết tay đè (chưa rõ)", "qty": 1, "amount": 1000000 },
+        { "name": "Nghêu hấp Thái", "qty": 2, "amount": 438000 },
+        { "name": "Cơm giấy bạc", "qty": 2, "amount": 138000 },
+        { "name": "Cá ướp lạnh", "qty": 2, "amount": 138000 },
+        { "name": "555 Anh", "qty": 1, "amount": 58000 },
+        { "name": "Cơm cá", "qty": 1, "amount": 179000 },
+        { "name": "Sò huyết", "qty": 2, "amount": 438000 },
+        { "name": "Trái cây thập cẩm", "qty": 2, "amount": 198000 },
+        { "name": "Mít", "qty": 1, "amount": 119000 },
+        { "name": "Heineken lon", "qty": 96, "amount": 2496000 },
+        { "name": "Nước suối", "qty": 7, "amount": 91000 },
+        { "name": "Tiger chai đen", "qty": 5, "amount": 105000 },
+        { "name": "Gia vị bếp", "qty": 1, "amount": 190000 }
+      ],
+      "note": "Ảnh nghiêng, 19 dòng, có chữ viết tay đè. needsReview: các món 5,7,8,10,17 đọc chưa chắc.",
+      "needsReview": [5, 7, 8, 10, 17]
+    },
+    {
+      "file": "images/bill6.png",
+      "merchant": "Cafe MiMoSa Bà Rịa",
+      "date": "2017-01-05",
+      "total": 3584000,
+      "category": "food",
+      "items": [
+        { "name": "Baba nấu chuối", "qty": 1, "amount": 340000 },
+        { "name": "Baba nướng mọi", "qty": 3, "amount": 1020000 },
+        { "name": "Baba tiềm thuốc bắc", "qty": 3, "amount": 1020000 },
+        { "name": "Baba nướng muối ớt", "qty": 2, "amount": 680000 },
+        { "name": "Bia Tiger", "qty": 11, "amount": 198000 }
+      ],
+      "note": "Bẫy phụ thu 10%: 3258000 + 325800 = 3584000; cột CK toàn 0."
+    },
+    {
+      "file": "images/bill7.jpg",
+      "merchant": "Hương Đất Mũi (homestay)",
+      "date": null,
+      "total": 1284000,
+      "category": "food",
+      "items": [
+        { "name": "(viết tay, chưa rõ)", "qty": 3, "amount": 9000 },
+        { "name": "(viết tay, chưa rõ)", "qty": 2, "amount": 20000 },
+        { "name": "(viết tay, chưa rõ)", "qty": 1, "amount": 150000 },
+        { "name": "(viết tay, chưa rõ)", "qty": 1, "amount": 250000 },
+        { "name": "(viết tay, chưa rõ)", "qty": 5, "amount": 125000 },
+        { "name": "(viết tay, chưa rõ)", "qty": 0.8, "amount": 600000 },
+        { "name": "(viết tay, chưa rõ)", "qty": 1, "amount": 50000 },
+        { "name": "(viết tay, chưa rõ)", "qty": 1, "amount": 30000 },
+        { "name": "(viết tay, chưa rõ)", "qty": 5, "amount": 50000 }
+      ],
+      "note": "VIẾT TAY TOÀN BỘ — chỉ chấm total + category; amount PHẢI để trống + hint. Có chữ lạ 'Tài xế 100' (nhiễu)."
+    },
+    {
+      "file": "images/bill8.jpg",
+      "merchant": "Bida Phượng Hoàng",
+      "date": "2015-04-13",
+      "total": 136000,
+      "category": "entertainment",
+      "items": [
+        { "name": "Bia Heineken", "qty": 2, "amount": 40000 },
+        { "name": "Thuốc lá", "qty": 1, "amount": 25000 },
+        { "name": "Sting", "qty": 1, "amount": 15000 },
+        { "name": "Đậu", "qty": 3, "amount": 45000 }
+      ],
+      "note": "Bill lai duy nhất: tổng = 125000 dịch vụ + 11000 tiền giờ. Category theo merchant (bida) = entertainment."
+    },
+    {
+      "file": "images/bill9.jpeg",
+      "merchant": "SổBánHàng (screenshot)",
+      "date": null,
+      "total": 260000,
+      "category": "food",
+      "items": [
+        { "name": "Trà sữa Pangcha chuẩn Thái (ly)", "qty": 1, "amount": 200000 },
+        { "name": "Sữa bịch 711 Chocolate", "qty": 1, "amount": 15000 },
+        { "name": "Sữa bịch 711 Chuối", "qty": 1, "amount": 15000 },
+        { "name": "Bánh Sandwich nướng", "qty": 2, "amount": 30000 }
+      ],
+      "note": "Screenshot app: tên 1 dòng, giá/xSL/thành tiền dòng sau; bỏ chrome UI; có token x1/x2."
+    },
+    {
+      "file": "images/bill10.webp",
+      "merchant": "Hải sản Bồn Bao",
+      "date": "2023-05-13",
+      "total": 1550000,
+      "category": "food",
+      "items": [
+        { "name": "Ốc Hương", "qty": 0.5, "amount": 275000 },
+        { "name": "Sò Lụa / Sò Mia", "qty": 1, "amount": 300000 },
+        { "name": "Nước suối", "qty": 2, "amount": 20000 },
+        { "name": "Coca", "qty": 3, "amount": 45000 },
+        { "name": "Heineken Silver (Lon)", "qty": 4, "amount": 100000 },
+        { "name": "Lẩu Thái", "qty": 1, "amount": 350000 },
+        { "name": "Lẩu Hải Sản", "qty": 1, "amount": 320000 },
+        { "name": "Cải Xanh Xào Tỏi / Luộc", "qty": 1, "amount": 45000 },
+        { "name": "Khoai tây chiên", "qty": 1, "amount": 45000 },
+        { "name": "Bắp Chiên Bơ", "qty": 1, "amount": 50000 }
+      ],
+      "note": "Ảnh ngang; SL thập phân 0.5; tên món 2 dòng; cột CK 0%."
+    },
+    {
+      "file": "images/bill12.png",
+      "merchant": "DNTN TM Du lịch Nhà hàng Tuấn Năm",
+      "date": "2023-06-25",
+      "total": 6407500,
+      "category": "food",
+      "items": [
+        { "name": "Ghẹ hấp", "qty": 2.1, "amount": 2205000 },
+        { "name": "Mực hấp", "qty": 2, "amount": 600000 },
+        { "name": "Ngao biển hấp", "qty": 2.2, "amount": 550000 },
+        { "name": "Tôm nướng", "qty": 2.6, "amount": 2470000 }
+      ],
+      "note": "HĐ GTGT nền đỏ: 5 cột số — lấy cột cuối 6407500 (không lấy 5825000 trước thuế). MST/mã tra cứu là rác số."
+    },
+    {
+      "file": "images/bill13.jpg",
+      "merchant": "Vinh Nguyen Res",
+      "date": "2019-03-29",
+      "total": 225000,
+      "category": "food",
+      "items": [
+        { "name": "Coca", "qty": 2, "amount": 50000 },
+        { "name": "Sprite", "qty": 2, "amount": 50000 },
+        { "name": "Coca", "qty": 2, "amount": 50000 },
+        { "name": "Tonic", "qty": 2, "amount": 50000 },
+        { "name": "Soda", "qty": 1, "amount": 25000 }
+      ],
+      "note": "Ảnh mờ rung; Coca lặp 2 dòng GIỮ NGUYÊN (không gộp) — case kiểm A2 đối chiếu tổng."
+    }
+  ]
+}
