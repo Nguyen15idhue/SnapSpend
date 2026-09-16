@@ -13,7 +13,7 @@
 | 05 | `05_RECEIPT_AI_KE_HOACH_TONG_QUAN.md` | Kế hoạch | Receipt Intelligence: OCR → trích xuất → tách khoản → phân tích | Đã chốt |
 | 06 | `06_RECEIPT_AI_CAC_BUOC.md` | Kế hoạch | Checklist bước R1–R3 của 05 | Đã chốt |
 | 07 | `07_RECEIPT_AI_KET_QUA.md` | Kết quả | Nghiệm thu 1-1 với 06 (R1–R3 ✅, 13/13 ảnh mẫu) | Hoàn thành 2026-09-16 |
-| 08 | `08_KE_HOACH_FIX_LOI_TEST_TOAN_DIEN.md` | **Kế hoạch** | **Fix lỗi review 2026-09-16 + test toàn diện + trọng tâm nhận diện hóa đơn (số tiền/danh mục/nội dung)** | ⬜ Đang chờ làm |
+| 08 | `08_KE_HOACH_FIX_LOI_TEST_TOAN_DIEN.md` | **Kế hoạch** | **Fix lỗi review 2026-09-16 + test toàn diện + trọng tâm nhận diện hóa đơn (số tiền/danh mục/nội dung); sửa đổi lần 2: cascade nhẹ, không service mới, Ollama → profile `ai`** | ⬜ Đang chờ làm |
 | 09 | `09_KET_QUA_FIX_TEST_TOAN_DIEN.md` | Kết quả | Nghiệm thu 1-1 với 08 (tạo khi bắt đầu làm) | ⬜ Chưa tạo |
 
 ## Quy ước ghi kết quả
