@@ -3,7 +3,7 @@
 > Ngày phân tích: 2026-09-14
 > Phạm vi: `android/`, `server/`, `docs/`, git/DevOps
 > Phương pháp: đọc toàn bộ source, build thật (`dotnet build`, `:app:assembleDebug`), chạy API + emulator, smoke test end-to-end.
-> Tài liệu liên quan: `KE_HOACH_HOAN_THIEN.md` (kế hoạch khắc phục), `../1/` (tài liệu giai đoạn trước).
+> Tài liệu liên quan: `02_KE_HOACH_HOAN_THIEN.md` (kế hoạch khắc phục), `../1/` (tài liệu giai đoạn trước).
 
 ---
 
@@ -167,4 +167,4 @@ Quy ước mức độ: **P0** = chặn/không chạy được · **P1** = lỗi
 
 - **Sản phẩm ở mức "MVP demo chạy được"**: hoàn thiện về luồng UI (Demo mode) và backend cơ bản, đã kiểm chứng build + chạy thật.
 - **Nợ kỹ thuật tập trung ở 3 chỗ**: (1) nền tảng schema/migration còn xung đột, (2) kiến trúc Android chưa có ViewModel/Navigation/Test, (3) backend chưa siết production (bảo mật, phân trang, storage, AI).
-- **Không có gì chặn về mặt ý tưởng**; các vấn đề đều có cách xử lý rõ ràng và đã được lập kế hoạch trong `KE_HOACH_HOAN_THIEN.md`.
+- **Không có gì chặn về mặt ý tưởng**; các vấn đề đều có cách xử lý rõ ràng và đã được lập kế hoạch trong `02_KE_HOACH_HOAN_THIEN.md`.

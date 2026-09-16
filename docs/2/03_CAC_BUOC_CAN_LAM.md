@@ -1,7 +1,7 @@
 # SnapSpend — Các bước cần làm (chi tiết theo Phase)
 
-> Nguồn: `KE_HOACH_HOAN_THIEN.md` + `PHAN_TICH_HIEN_TRANG.md` (cùng folder `docs/2`).
-> Cách dùng: làm xong bước nào thì ghi kết quả vào `KET_QUA_DAT_DUOC.md` theo đúng số bước.
+> Nguồn: `02_KE_HOACH_HOAN_THIEN.md` + `01_PHAN_TICH_HIEN_TRANG.md` (cùng folder `docs/2`).
+> Cách dùng: làm xong bước nào thì ghi kết quả vào `04_KET_QUA_DAT_DUOC.md` theo đúng số bước.
 > Quy ước trạng thái: `⬜ Chưa làm | 🔄 Đang làm | ✅ Đạt | ❌ Fail (ghi rõ lỗi) | ⛔ Ngoài phạm vi`
 > Mỗi bước gồm 4 phần: **Nội dung** · **Yêu cầu cần đạt** · **Checklist test** · **Ghi chú**.
 

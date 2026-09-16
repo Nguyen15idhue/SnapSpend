@@ -10,7 +10,7 @@ App **luôn dùng backend thật** — cần chạy server trước khi dùng.
   - `RealRepository` — backend thật (Retrofit + Room cache).
 - `server/`: ASP.NET Core 10 + EF Core 10 + PostgreSQL 17 + JWT. Migration là nguồn schema duy nhất (xem `Migrations/`).
   - AI: engine nội bộ (phân loại text, heuristic bỏ dấu) + optional Gemini/key và **Ollama local** cho trích xuất/phân tích.
-- `docs/1/`: tài liệu giai đoạn MVP cũ. `docs/2/`: phân tích hiện trạng + kế hoạch + kết quả đang làm (kể cả `RECEIPT_AI_*`).
+- `docs/1/`: tài liệu giai đoạn MVP cũ. `docs/2/`: đánh số 00–09 theo `00_DOC_MUC_LUC.md` (01–04 nền tảng, 05–07 Receipt AI, 08 kế hoạch fix lỗi + test toàn diện hiện tại).
 
 ## Yêu cầu môi trường
 
@@ -80,4 +80,4 @@ $tok = $r.token
 Invoke-RestMethod -Uri "$base/api/stats?from=2026-09-01&to=2026-09-30" -Headers @{Authorization="Bearer $tok"}
 ```
 
-Tài liệu chi tiết: `docs/2/PHAN_TICH_HIEN_TRANG.md`, `docs/2/KE_HOACH_HOAN_THIEN.md`, `docs/2/CAC_BUOC_CAN_LAM.md`, `docs/2/KET_QUA_DAT_DUOC.md`.
+Tài liệu chi tiết: xem mục lục `docs/2/00_DOC_MUC_LUC.md` (01 phân tích → 08 kế hoạch fix lỗi + test toàn diện hiện đang chờ làm).

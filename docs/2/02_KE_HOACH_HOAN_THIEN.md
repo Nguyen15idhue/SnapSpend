@@ -1,7 +1,7 @@
 # SnapSpend — Kế hoạch hoàn thiện mã nguồn
 
 > Ngày lập: 2026-09-14
-> Nguồn: `PHAN_TICH_HIEN_TRANG.md` (các mã vấn đề FND/AND/SRV/DB/DOC/TST)
+> Nguồn: `01_PHAN_TICH_HIEN_TRANG.md` (các mã vấn đề FND/AND/SRV/DB/DOC/TST)
 > Mục tiêu: đưa repo từ "MVP demo chạy được" lên "sản phẩm ổn định, có kiểm thử, sẵn sàng deploy".
 > Nguyên tắc: mỗi giai đoạn phải **build xanh + chạy thật** trước khi sang giai đoạn sau; làm xong bước nào ghi kết quả ngay.
 

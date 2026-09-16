@@ -19,7 +19,7 @@ SnapSpend là app Android ghi chi tiêu bằng ảnh, có backend riêng.
 > (`MockRepository`, `AppConfig.isDemo`, công tắc Demo ở Profile). Mọi tính năng mới chỉ cần impl Real.
 > Backend bắt buộc chạy (emulator trỏ `http://10.0.2.2:5080/api/`).
 
-Tài liệu nền: `docs/2/PHAN_TICH_HIEN_TRANG.md` (vấn đề hiện có) và `docs/2/KE_HOACH_HOAN_THIEN.md` (kế hoạch).
+Tài liệu nền: `docs/2/01_PHAN_TICH_HIEN_TRANG.md` (vấn đề hiện có) và `docs/2/02_KE_HOACH_HOAN_THIEN.md` (kế hoạch). Xem `docs/2/00_DOC_MUC_LUC.md` để biết tài liệu nào đang chạy.
 
 ---
 

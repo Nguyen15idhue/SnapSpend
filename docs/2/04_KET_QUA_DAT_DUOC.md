@@ -1,6 +1,6 @@
 # SnapSpend — Kết quả đã đạt (theo từng bước)
 
-> Đối chiếu 1-1 với `CAC_BUOC_CAN_LAM.md` (cùng folder `docs/2`).
+> Đối chiếu 1-1 với `03_CAC_BUOC_CAN_LAM.md` (cùng folder `docs/2`).
 > Cách dùng: làm xong bước nào thì điền kết quả ngay dưới bước đó, không dồn cuối.
 > Quy ước trạng thái: `⬜ Chưa làm | 🔄 Đang làm | ✅ Đạt | ❌ Fail (ghi rõ lỗi)`
 > Mỗi bước gồm: **File đã tạo/sửa** · **Kết quả test theo checklist** · **Kết quả đã đạt** · **Ghi chú**.
@@ -334,7 +334,7 @@ Ngày bắt đầu kế hoạch: 2026-09-14.
 
 > Toàn bộ GĐ5 (5.1–5.10) nằm **ngoài phạm vi** bài tập lớn: rate limiting, HTTPS/CORS, refresh token,
 > object storage, Swagger/ProblemDetails, logging, backup, moderation/strip EXIF, deploy, soft-delete.
-> Lý do: vượt yêu cầu môn học (xem đầu `CAC_BUOC_CAN_LAM.md`).
+> Lý do: vượt yêu cầu môn học (xem đầu `03_CAC_BUOC_CAN_LAM.md`).
 
 | Bước | Nội dung | Trạng thái |
 |------|----------|------------|
@@ -402,7 +402,7 @@ Ngày bắt đầu kế hoạch: 2026-09-14.
 | **Tổng** | **39** | **23** | **23** | **0** | **0** | **15 (+1 n/a)** |
 
 > **Phạm vi rút gọn (2026-09-15) + bổ sung 2026-09-16:** làm **23 bước** (GĐ1–GĐ4 + 6.1, 6.4 + 3.3, 3.7, 3.8; trừ 2.4 không còn áp dụng);
-> **15 bước ngoài phạm vi** (3.5, 4.4, toàn bộ GĐ5, 6.2, 6.3, 6.5) — chi tiết lý do xem đầu `CAC_BUOC_CAN_LAM.md`.
+> **15 bước ngoài phạm vi** (3.5, 4.4, toàn bộ GĐ5, 6.2, 6.3, 6.5) — chi tiết lý do xem đầu `03_CAC_BUOC_CAN_LAM.md`.
 
 ## Changelog bổ sung (2026-09-15)
 

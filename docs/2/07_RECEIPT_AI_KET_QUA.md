@@ -1,6 +1,6 @@
 # Receipt Intelligence — Kết quả đã đạt
 
-> Đối chiếu 1-1 với `RECEIPT_AI_CAC_BUOC.md` (cùng folder).
+> Đối chiếu 1-1 với `06_RECEIPT_AI_CAC_BUOC.md` (cùng folder).
 > Quy ước trạng thái: `⬜ Chưa làm | 🔄 Đang làm | ✅ Đạt | ❌ Fail (ghi rõ lỗi)`
 > Mỗi bước gồm: **File đã tạo/sửa** · **Kết quả test theo checklist** · **Kết quả đã đạt** · **Ghi chú**.
 
