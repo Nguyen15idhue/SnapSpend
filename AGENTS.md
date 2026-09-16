@@ -79,6 +79,7 @@ Quy tắc thêm:
 - Khi truyền tiếng Việt vào lệnh native (`git`, `docker`, `curl`), ưu tiên ghi ra file UTF-8 rồi tham chiếu file (`--data-binary @file`, `-F`...), tránh nhồi chuỗi dài inline.
 - Với tham số chứa ký tự đặc biệt (`@ # % & =`), dùng mảng đối số hoặc quote đúng; cân nhắc `--%` hoặc call operator `&`.
 - Dùng tên cmdlet đầy đủ (`Get-Content`, `Set-Content`...) thay alias.
+- Lệnh chạy lâu (build/test/docker/emulator/Appium) phải chia bước nhỏ + đặt timeout rõ ràng; fail thì retry tối đa 1 lần, vẫn fail thì ghi "chưa kiểm chứng được + lý do" theo Mục 5.3, không để treo.
 - **Không bao giờ** in/greet hay ghi log ra file bất kỳ secret (connection string, JWT key, API key, token).
 - File dấu xuống dòng: repo có thể cảnh báo `LF will be replaced by CRLF`; giữ nguyên, không tự đổi cấu hình git toàn cục.
 
@@ -153,7 +154,7 @@ Không coi một task là xong nếu chưa kiểm chứng. Thứ tự:
 ## 7. Nguyên tắc dành riêng cho AI/agent
 
 1. **Trả lời tiếng Việt có dấu**, ngắn gọn, thực tế; báo rõ khi chưa chắc chắn.
-2. **Đọc trước, sửa sau**: dùng công cụ đọc/glob/grep để nắm code, không đoán. Với refactor chạm nhiều tầng (repository/DTO/Room/endpoint), dùng thêm **codebase-memory-mcp** (project `F-3.Laptrinh-2.Learning-Mobile-SnapSpend`): `search_graph` tìm symbol, `trace_path` xem callers/callees, `detect_changes` tính vùng ảnh hưởng; kiểm tra `coverage` trước khi tin kết quả âm tính.
+2. **Đọc trước, sửa sau — tiết kiệm token**: tìm symbol/quan hệ bằng **codebase-memory-mcp** (`search_graph`, `trace_path`) và gom ngữ cảnh bằng Task subagent TRƯỚC khi đọc file; chỉ đọc file thật sự liên quan, không đọc lan man. Với refactor chạm nhiều tầng (repository/DTO/Room/endpoint): `search_graph` tìm symbol, `trace_path` xem callers/callees, `detect_changes` tính vùng ảnh hưởng; kiểm tra `coverage` trước khi tin kết quả âm tính.
 3. **Không tự ý mở rộng phạm vi**: làm đúng việc được giao; cải tiến ngoài phạm vi thì đề xuất, không tự làm.
 4. **Không cài đặt hay thay đổi môi trường hệ thống** (XAMPP, Docker desktop, đổi biến môi trường máy...) trừ khi được yêu cầu.
 5. **Không lộ secret** trong chat, log, commit hay file sinh ra.
