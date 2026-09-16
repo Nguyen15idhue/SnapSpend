@@ -95,23 +95,6 @@ public class RecognitionTests
     }
 
     [Fact]
-    public async Task Debug_fixture()
-    {
-        var svc = await CreateServiceAsync();
-        var text = File.ReadAllText(Path.Combine(DocsRoot(), "ocr", "bill1.jpg.txt"));
-        var items = await svc.ParseItemsAsync(text);
-        throw new Xunit.Sdk.XunitException("ITEMS(" + items.Count + "): " + string.Join(" | ", items.Select(i => $"{i.Name}={i.Amount}")));
-    }
-
-    private static string DocsRoot()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, "docs", "3")))
-            dir = dir.Parent;
-        return Path.Combine(dir!.FullName, "docs", "3");
-    }
-
-    [Fact]
     public void ValidateTotal_nguong_5_phan_tram()
     {
         Assert.True(RecognitionService.ValidateTotal(100000L, [new("a", 95000L)]));

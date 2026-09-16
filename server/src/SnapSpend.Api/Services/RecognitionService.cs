@@ -61,7 +61,8 @@ public class RecognitionService(AppDbContext db)
         NumberRegex.Matches(line).Select(m => m.Value.Replace(".", "").Replace(",", ""))
             .Select(v => long.TryParse(v, out var n) ? n : 0).Where(n => n is >= MinAmount and <= MaxAmount).ToList();
 
-    private bool IsNoise(string normLine) => _noise!.Any(p => normLine.Contains(Normalize(p.Pattern)));
+    // Noise khớp theo ranh giới từ: "so (" không được khớp "mi|so (nac vai)" (bill2).
+    private bool IsNoise(string normLine) => _noise!.Any(p => KeywordHit(normLine, Normalize(p.Pattern)));
 
     /// <summary>
     /// Keyword danh mục khớp theo ranh giới từ (tránh "nike" trong "heniken", "bus" trong "business").

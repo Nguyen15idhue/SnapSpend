@@ -44,7 +44,20 @@
 - Ghi chú: `extractAmount` cũ có fallback số lớn nhất nhưng UI không dùng (FormScreen chỉ dùng `extractTotal`) — nay `extractAmount` trả null khi LOW, 7 test cũ vẫn xanh.
 - **Bug thật từ test tay user (bill7 viết tay, 2026-09-16):** ô tiền tự điền **90000** (sai, đúng phải trống) + note bị đè thành "Mì, Bún, Tôm", dù hint LOW hiện đúng. Nguyên nhân: luật nội bộ đã từ chối (LOW) nhưng `extractViaAi` tin luôn số Ollama 0.5B bịa ra. **Đã fix:** số tiền AI chỉ dùng khi khớp `guessAmount` luật ±5% (`ExpenseFormViewModel.extractViaAi`). Test tay lại bill7 đang chờ user. Note AI bịa ("Mì, Bún, Tôm") chuyển sang F2 (cổng kiểm note).
 
-**Kết quả F1:** 🔄 | Còn lại: Appium 3 bill (chạy khi có emulator + API).
+**Kết quả F1:** ✅ backend (engine DB + 13 bill fixture), 🔄 client/Appium chờ frontend.
+
+### F1-backend — Engine nhận diện từ DB (2026-09-16)
+- File: `Models/Recognition.cs`, `Data/RecognitionSeed.cs` (5 bảng, ~1.200 row keyword), `Services/RecognitionService.cs`, `Endpoints/AiEndpoints.cs` (`/ai/parse`, `/ai/verify-total`), migration `RecognitionKeywords`; gỡ `OllamaService.cs` + `/ai/extract`.
+- Test: **`dotnet test` 135/135 xanh**, `dotnet build` 0 warning.
+- Bug thật phát hiện qua test (đều đã fix):
+  1. **`đ` không phân rã Unicode FormD** → mọi keyword chứa d phải map tay, nếu không "tiền điện", "đi ch", "khách đã trả" khớp hụt. Fix `Normalize()` cả C# **và** `ReceiptOcr.kt`.
+  2. **`so (` khớp bậy trong "mi|so (nạc vai)"** (bill2 mất món 440.000) → noise chuyển sang khớp **ranh giới từ**.
+  3. **"Bàn/Table: T5042", "Số : HD130523"** lọt thành món rác (bill4/bill10) → thêm noise `ban/`, `table`, `so :`, `phieu`.
+  4. **`nike` khớp trong "He|niken"** → word-boundary cho category.
+  5. **Số VN `7751.000`** (không đủ nhóm nghìn) bị regex cũ bỏ → đổi `[\d.,]+` + bỏ phân cách.
+- Gate F4.5 (fixture 13 bill đối chiếu `expected.json`): **tổng 12/12 bill in đúng** (bill7 viết tay → LOW/trống), **danh mục 12/12** (bill8 bida → entertainment; bill7 để `other` — không đoán), **tiền từng món khớp** (bill12 lấy thành tiền sau thuế — ghi chú), **nội dung sạch MST/mã + có tên món**.
+- Chưa chấm: **bill5 tên món** (ảnh nghiêng + chữ viết tay đè, fixture chỉ phỏng đoán) — bỏ qua theo yêu cầu, số tiền vẫn chấm.
+- Chưa làm: client gọi `/ai/parse` + `/verify-total`, `POST /ai/expenses/bulk`, Appium (frontend/user tự làm).
 
 ---
 

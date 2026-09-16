@@ -27,7 +27,7 @@ public static class RecognitionSeed
         [
             "so (", "(no)", "so:", "ma so", "ma cqt", "ma hang", "ma khach hang", "khach hang",
             "ky hieu", "seri", "ma tra", "ngay", "date", "nam ", "dien thoai", "tel", "dia chi", "address",
-            "ma nhan", "ma hd", "ma co quan", "so phieu", "so hd", "ban ", "ban:", "sl khach", "thoi gian", "gio ", "gio vao", "gio ra",
+            "ma nhan", "ma hd", "ma co quan", "so phieu", "so hd", "so :", "ban ", "ban:", "ban/", "table", "phieu", "sl khach", "thoi gian", "gio ", "gio vao", "gio ra",
             "thu ngan", "phuc vu", "in luc", "ngay in", "dt:", "sdt", "hotline", "fax",
             "tien mat", "tien hang", "khach dua", "khach tra", "khach da tra", "con phai thu", "phai thu",
             "tien thua", "thoi lai", "tien thoi", "phi phuc vu", "phu thu", "thanh tien", "vat", "service", "tra cuu",
